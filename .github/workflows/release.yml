@@ -17,6 +17,9 @@ concurrency:
 jobs:
   build:
     runs-on: windows-latest
+    permissions:
+      contents: read
+      actions: read # find & download the Build workflow's prebuilt artifact
     strategy:
       fail-fast: false
       matrix:
@@ -30,29 +33,69 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Tags are normally pushed on a commit the Build workflow already compiled,
+      # so reuse that exact-commit artifact and skip the slow cargo build. Falls
+      # back to building from source if there's no usable prebuilt payload.
+      - name: Reuse prebuilt payload
+        id: reuse
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $sha = "${{ github.sha }}"
+          $runId = gh api `
+            "repos/${{ github.repository }}/actions/workflows/build.yml/runs?head_sha=$sha&status=success&per_page=1" `
+            --jq ".workflow_runs[0].id // empty"
+          $reused = "false"
+          if ($runId) {
+            Remove-Item payload -Recurse -Force -ErrorAction SilentlyContinue
+            New-Item -ItemType Directory -Force payload | Out-Null
+            try {
+              gh run download $runId --pattern "polaris-*-${{ matrix.arch }}-*" --dir payload
+              # gh nests each artifact under its own dir — flatten into payload/.
+              Get-ChildItem payload -Recurse -File | Move-Item -Destination payload -Force
+              Get-ChildItem payload -Directory | Remove-Item -Recurse -Force
+            } catch { Write-Host "artifact download failed: $_" }
+            # Only reuse if the payload is complete (guards against an older
+            # build.yml that shipped a different file set for this commit).
+            $need = 'polaris_et.exe','wintun.dll','Microsoft.WindowsAppRuntime.Bootstrap.dll','resources.pri','Packet.dll'
+            $missing = $need | Where-Object { -not (Test-Path "payload/$_") }
+            if (-not $missing) {
+              $reused = "true"; Write-Host "Reusing Build run $runId for $sha"
+            } else {
+              Write-Host "Prebuilt payload incomplete (missing: $($missing -join ', ')); rebuilding"
+            }
+          } else {
+            Write-Host "No successful Build run for $sha; building from source"
+          }
+          "reused=$reused" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
+
       - uses: ./.github/actions/setup
+        if: steps.reuse.outputs.reused != 'true'
         with:
           target: ${{ matrix.target }}
 
       - name: Build (release)
+        if: steps.reuse.outputs.reused != 'true'
+        shell: pwsh
         # First run is slow: compiles the EasyTier core and the windows-rs crates
         # from git and downloads the Windows App SDK payloads.
-        run: cargo build --release --bin polaris_et --target ${{ matrix.target }}
+        run: |
+          cargo build --release --bin polaris_et --target ${{ matrix.target }}
+          if ($LASTEXITCODE -ne 0) { throw "cargo build failed" }
+          $out = "target/${{ matrix.target }}/release"
+          Remove-Item payload -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force payload | Out-Null
+          # Must match build.yml's dist/ exactly — release reuses that artifact.
+          Copy-Item "$out/polaris_et.exe","$out/wintun.dll","$out/Microsoft.WindowsAppRuntime.Bootstrap.dll","$out/resources.pri" payload/
+          Copy-Item "easytier/third_party/${{ matrix.tpdir }}/Packet.dll" payload/
+          Copy-Item LICENSE,README.md,CREDITS.md payload/
 
-      - name: Package
+      - name: Package (zip)
         shell: pwsh
         run: |
           $stage = "polaris-${{ github.ref_name }}-${{ matrix.arch }}"
-          $out = "target/${{ matrix.target }}/release"
-          New-Item -ItemType Directory -Force $stage | Out-Null
-          # Full runtime payload — see build.yml for what each file is for.
-          Copy-Item "$out/polaris_et.exe"                          $stage/
-          Copy-Item "$out/wintun.dll"                              $stage/
-          Copy-Item "$out/Microsoft.WindowsAppRuntime.Bootstrap.dll" $stage/
-          Copy-Item "$out/resources.pri"                           $stage/
-          Copy-Item "easytier/third_party/${{ matrix.tpdir }}/Packet.dll" $stage/
-          Copy-Item LICENSE, README.md, CREDITS.md                 $stage/
-          Compress-Archive -Path "$stage/*" -DestinationPath "$stage.zip" -Force
+          Compress-Archive -Path "payload/*" -DestinationPath "$stage.zip" -Force
 
       - name: Build installer (Inno Setup)
         shell: pwsh
@@ -69,7 +112,7 @@ jobs:
             "/DVersionInfo=$verNum" `
             "/DArch=${{ matrix.arch }}" `
             "/DArchSpec=$archSpec" `
-            "/DSourceDir=$((Resolve-Path $stage).Path)" `
+            "/DSourceDir=$((Resolve-Path payload).Path)" `
             "/DOutputDir=$((Get-Location).Path)" `
             "/DOutputBase=$stage-setup" `
             packaging/polaris.iss

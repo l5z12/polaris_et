@@ -6,6 +6,21 @@ name: Build
 on:
   push:
     branches: ["**"]
+    # Only build when something that affects the binary changes — skip docs-only
+    # pushes. workflow_dispatch (below) is the escape hatch to force a build.
+    paths:
+      - "src/**"
+      - "build.rs"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "rust-toolchain.toml"
+      - "assets/**"
+      - "wintun/**"
+      - "easytier/third_party/**"
+      - ".cargo/**"
+      - ".gitattributes" # affects how vendored binaries are checked out
+      - ".github/workflows/build.yml"
+      - ".github/actions/setup/**"
   workflow_dispatch:
 
 permissions:
