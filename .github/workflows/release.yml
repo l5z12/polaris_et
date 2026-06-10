@@ -54,11 +54,34 @@ jobs:
           Copy-Item LICENSE, README.md, CREDITS.md                 $stage/
           Compress-Archive -Path "$stage/*" -DestinationPath "$stage.zip" -Force
 
+      - name: Build installer (Inno Setup)
+        shell: pwsh
+        run: |
+          choco install innosetup --no-progress -y
+          $iscc = (Get-Command iscc.exe -ErrorAction SilentlyContinue).Source
+          if (-not $iscc) { $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" }
+          $stage    = "polaris-${{ github.ref_name }}-${{ matrix.arch }}"
+          $ver      = "${{ github.ref_name }}".TrimStart('v') # 0.1.0 / 0.1.0-rc1
+          $verNum   = ($ver -split '-')[0]                    # numeric VERSIONINFO
+          $archSpec = if ("${{ matrix.arch }}" -eq "arm64") { "arm64" } else { "x64os" }
+          & $iscc /Qp `
+            "/DAppVersion=$ver" `
+            "/DVersionInfo=$verNum" `
+            "/DArch=${{ matrix.arch }}" `
+            "/DArchSpec=$archSpec" `
+            "/DSourceDir=$((Resolve-Path $stage).Path)" `
+            "/DOutputDir=$((Get-Location).Path)" `
+            "/DOutputBase=$stage-setup" `
+            packaging/polaris.iss
+          if ($LASTEXITCODE -ne 0) { throw "ISCC failed ($LASTEXITCODE)" }
+
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: zip-${{ matrix.arch }}
-          path: polaris-*-${{ matrix.arch }}.zip
+          name: dist-${{ matrix.arch }}
+          path: |
+            polaris-*-${{ matrix.arch }}.zip
+            polaris-*-${{ matrix.arch }}-setup.exe
           if-no-files-found: error
 
   release:
@@ -71,22 +94,27 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: artifacts
-          merge-multiple: true # flatten zip-x64/ and zip-arm64/ into artifacts/
+          merge-multiple: true # flatten dist-x64/ and dist-arm64/ into artifacts/
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: artifacts/*.zip
+          files: |
+            artifacts/*.zip
+            artifacts/*-setup.exe
           generate_release_notes: true
           # Tags with a pre-release suffix (e.g. v0.1.0-rc1) ship as pre-releases.
           prerelease: ${{ contains(github.ref_name, '-') }}
           body: |
-            Standalone Windows builds — pick the zip for your CPU:
-            `*-x64.zip` for Intel/AMD, `*-arm64.zip` for Windows on ARM.
+            Pick the build for your CPU — `x64` for Intel/AMD, `arm64` for
+            Windows on ARM. Two formats each:
+
+            - `*-setup.exe` — installer (Start Menu shortcut, uninstaller).
+            - `*.zip` — portable; keep every file together.
 
             **Requires the [Windows App SDK runtime](https://learn.microsoft.com/windows/apps/windows-app-sdk/downloads)**
-            (this is a framework-dependent build). Keep every file in the zip
-            together — `polaris_et.exe` needs `wintun.dll`,
+            (this is a framework-dependent build). For the portable zip,
+            `polaris_et.exe` needs `wintun.dll`,
             `Microsoft.WindowsAppRuntime.Bootstrap.dll`, `resources.pri`, and
             `Packet.dll` beside it. For VPN (TUN) mode, run as administrator —
             see the README.
