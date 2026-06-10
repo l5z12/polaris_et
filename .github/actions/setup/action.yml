@@ -15,12 +15,14 @@ runs:
         targets: ${{ inputs.target }}
 
     - name: Install protoc
-      uses: arduino/setup-protoc@v3
-      with:
-        # github.token is the auto-provided GITHUB_TOKEN; the `secrets` context
-        # isn't available inside a composite action, but `github` is. Used only
-        # to avoid the GitHub API rate limit when fetching protoc.
-        repo-token: ${{ github.token }}
+      shell: pwsh
+      # Use Chocolatey (preinstalled on windows-latest) rather than
+      # arduino/setup-protoc: that action resolves the version through GitHub's
+      # /releases API, which intermittently 500s. The choco package downloads a
+      # fixed release asset instead, and its shim dir is already on PATH.
+      run: |
+        choco install protoc --no-progress -y
+        protoc --version
 
     - name: Configure environment
       shell: pwsh
