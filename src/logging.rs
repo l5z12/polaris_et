@@ -183,10 +183,10 @@ impl Write for Fanout {
     }
 
     fn flush(&mut self) -> io::Result<()> {
-        if let Ok(mut g) = FILE.lock() {
-            if let Some(f) = g.as_mut() {
-                let _ = f.flush();
-            }
+        if let Ok(mut g) = FILE.lock()
+            && let Some(f) = g.as_mut()
+        {
+            let _ = f.flush();
         }
         Ok(())
     }

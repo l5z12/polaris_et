@@ -110,7 +110,7 @@ fn root(cx: &mut RenderCx, engine: &Engine) -> Element {
     // Install the close/minimize-to-tray window hook once the main window
     // exists. Retried on each repaint tick until it succeeds (the window may
     // not exist on the very first render), then a cheap no-op.
-    cx.use_effect(tick, || tray::ensure_window_hook());
+    cx.use_effect(tick, tray::ensure_window_hook);
 
     // Keep the tray's close/minimize behavior in sync with the settings.
     let close_to_tray = store.settings.close_to_tray;

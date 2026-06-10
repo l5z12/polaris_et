@@ -436,6 +436,9 @@ impl Profile {
 
     /// Build a profile from an EasyTier `NetworkConfig` (an imported config
     /// shared with the official EasyTier GUI). A fresh local id is assigned.
+    // Copies 40+ fields out of `nc`; default-then-assign is far less noisy here
+    // than a struct literal.
+    #[allow(clippy::field_reassign_with_default)]
     pub fn from_network_config(nc: &NetworkConfig) -> Profile {
         let net_name = nc.network_name.clone().unwrap_or_default();
         let mut p = Profile::default();
@@ -451,10 +454,10 @@ impl Profile {
 
         p.dhcp = nc.dhcp.unwrap_or(true);
         p.virtual_ipv4 = nc.virtual_ipv4.clone().unwrap_or_default();
-        if let Some(len) = nc.network_length {
-            if len > 0 {
-                p.network_length = len.clamp(1, 32) as u8;
-            }
+        if let Some(len) = nc.network_length
+            && len > 0
+        {
+            p.network_length = len.clamp(1, 32) as u8;
         }
 
         p.join_method = JoinMethod::from_index(nc.networking_method.unwrap_or(0));
@@ -465,27 +468,27 @@ impl Profile {
 
         p.proxy_cidrs = nc.proxy_cidrs.clone();
         p.enable_socks5 = nc.enable_socks5.unwrap_or(false);
-        if let Some(port) = nc.socks5_port {
-            if port > 0 {
-                p.socks5_port = port as u16;
-            }
+        if let Some(port) = nc.socks5_port
+            && port > 0
+        {
+            p.socks5_port = port as u16;
         }
 
         p.enable_vpn_portal = nc.enable_vpn_portal.unwrap_or(false);
-        if let Some(port) = nc.vpn_portal_listen_port {
-            if port > 0 {
-                p.vpn_portal_listen_port = port as u16;
-            }
+        if let Some(port) = nc.vpn_portal_listen_port
+            && port > 0
+        {
+            p.vpn_portal_listen_port = port as u16;
         }
-        if let Some(cidr) = &nc.vpn_portal_client_network_addr {
-            if !cidr.is_empty() {
-                p.vpn_portal_client_network_addr = cidr.clone();
-            }
+        if let Some(cidr) = &nc.vpn_portal_client_network_addr
+            && !cidr.is_empty()
+        {
+            p.vpn_portal_client_network_addr = cidr.clone();
         }
-        if let Some(len) = nc.vpn_portal_client_network_len {
-            if len > 0 {
-                p.vpn_portal_client_network_len = len.clamp(1, 32) as u8;
-            }
+        if let Some(len) = nc.vpn_portal_client_network_len
+            && len > 0
+        {
+            p.vpn_portal_client_network_len = len.clamp(1, 32) as u8;
         }
 
         p.enable_manual_routes = nc.enable_manual_routes.unwrap_or(false);
@@ -593,18 +596,18 @@ fn parse_json_configs(text: &str) -> anyhow::Result<Vec<Profile>> {
         config: NetworkConfig,
     }
     // The official GUI stores `[{ "config": NetworkConfig, ... }]`.
-    if let Ok(arr) = serde_json::from_str::<Vec<Stored>>(text) {
-        if !arr.is_empty() {
-            return Ok(arr
-                .iter()
-                .map(|s| Profile::from_network_config(&s.config))
-                .collect());
-        }
+    if let Ok(arr) = serde_json::from_str::<Vec<Stored>>(text)
+        && !arr.is_empty()
+    {
+        return Ok(arr
+            .iter()
+            .map(|s| Profile::from_network_config(&s.config))
+            .collect());
     }
-    if let Ok(arr) = serde_json::from_str::<Vec<NetworkConfig>>(text) {
-        if !arr.is_empty() {
-            return Ok(arr.iter().map(Profile::from_network_config).collect());
-        }
+    if let Ok(arr) = serde_json::from_str::<Vec<NetworkConfig>>(text)
+        && !arr.is_empty()
+    {
+        return Ok(arr.iter().map(Profile::from_network_config).collect());
     }
     let nc: NetworkConfig = serde_json::from_str(text)?;
     Ok(vec![Profile::from_network_config(&nc)])

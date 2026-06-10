@@ -22,8 +22,11 @@ fn wide(s: &str) -> Vec<u16> {
     s.encode_utf16().chain(std::iter::once(0)).collect()
 }
 
+/// Owned name/spec buffers + the `COMDLG_FILTERSPEC`s that borrow them.
+type FilterSpecs = (Vec<(Vec<u16>, Vec<u16>)>, Vec<COMDLG_FILTERSPEC>);
+
 /// Owned backing buffers for a set of `COMDLG_FILTERSPEC`s.
-fn build_specs(filters: &[(&str, &str)]) -> (Vec<(Vec<u16>, Vec<u16>)>, Vec<COMDLG_FILTERSPEC>) {
+fn build_specs(filters: &[(&str, &str)]) -> FilterSpecs {
     let bufs: Vec<(Vec<u16>, Vec<u16>)> = filters.iter().map(|(n, s)| (wide(n), wide(s))).collect();
     let specs = bufs
         .iter()

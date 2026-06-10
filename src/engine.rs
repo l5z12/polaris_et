@@ -339,10 +339,10 @@ async fn net_snapshot(ni: &NetworkInstance) -> NetSnapshot {
                     conn_count += 1;
                 }
                 loss = loss.max(conn.loss_rate);
-                if tunnel.is_empty() {
-                    if let Some(t) = &conn.tunnel {
-                        tunnel = t.tunnel_type.to_uppercase();
-                    }
+                if tunnel.is_empty()
+                    && let Some(t) = &conn.tunnel
+                {
+                    tunnel = t.tunnel_type.to_uppercase();
                 }
             }
         }
@@ -353,11 +353,9 @@ async fn net_snapshot(ni: &NetworkInstance) -> NetSnapshot {
         // easytier-gui, which shows latency only when connection stats exist.
         // (`route.path_latency` is a routing *cost*, `cost % AVOID_RELAY_COST`,
         // not a latency — it reads as a bogus ~1000 for relayed peers.)
-        let latency_ms = if conn_count > 0 {
-            Some((latency_us / conn_count) as f64 / 1000.0)
-        } else {
-            None
-        };
+        let latency_ms = latency_us
+            .checked_div(conn_count)
+            .map(|us| us as f64 / 1000.0);
 
         net.rx_bytes += rx;
         net.tx_bytes += tx;
@@ -400,8 +398,7 @@ async fn net_snapshot(ni: &NetworkInstance) -> NetSnapshot {
         });
     }
 
-    net.peers
-        .sort_by(|a, b| a.hostname.to_lowercase().cmp(&b.hostname.to_lowercase()));
+    net.peers.sort_by_key(|a| a.hostname.to_lowercase());
 
     net
 }

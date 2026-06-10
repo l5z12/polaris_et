@@ -113,7 +113,7 @@ unsafe fn run(engine: Engine) {
 
         // The application icon embedded by build.rs (resource id 1), falling
         // back to the generic icon if it can't be loaded.
-        let hicon = LoadIconW(Some(hinstance), PCWSTR(1 as *const u16))
+        let hicon = LoadIconW(Some(hinstance), PCWSTR(std::ptr::dangling::<u16>()))
             .or_else(|_| LoadIconW(None, IDI_APPLICATION))
             .unwrap_or_default();
 
@@ -242,7 +242,7 @@ fn find_main_window() -> Option<HWND> {
     unsafe {
         let _ = EnumWindows(Some(enum_main), LPARAM(&mut found as *mut isize as isize));
     }
-    (found != 0).then(|| HWND(found as *mut _))
+    (found != 0).then_some(HWND(found as *mut _))
 }
 
 unsafe extern "system" fn enum_main(hwnd: HWND, lparam: LPARAM) -> BOOL {
@@ -342,7 +342,7 @@ unsafe fn set_window_icon(hwnd: HWND) {
             return;
         };
         let hinst = HINSTANCE(module.0);
-        let id = PCWSTR(1 as *const u16); // MAKEINTRESOURCE(1)
+        let id = PCWSTR(std::ptr::dangling::<u16>()); // MAKEINTRESOURCE(1)
         if let Ok(small) = LoadImageW(Some(hinst), id, IMAGE_ICON, 16, 16, LR_DEFAULTCOLOR) {
             let _ = SendMessageW(
                 hwnd,

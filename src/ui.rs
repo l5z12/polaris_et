@@ -8,7 +8,7 @@
 //! 2. **Security**  — encryption, magic DNS, private mode, relay whitelist.
 //! 3. **Routing**   — latency preference, subnet proxy, manual routes, exit nodes.
 //! 4. **Proxies**   — SOCKS5, VPN portal (with live WireGuard config viewer),
-//!                    port-forward table.
+//!    port-forward table.
 //! 5. **Advanced**  — transport / P2P / NAT toggles, listeners, MTU / BPS limit.
 //!
 //! Dense flag grids use checkboxes + `(?)` tooltip icons (three-up grid). The
@@ -861,8 +861,10 @@ fn add_network_button(ctx: &PageCtx) -> Button {
         .icon(SymbolGlyph::Add)
         .on_click(move || {
             let mut s = store.clone();
-            let mut p = Profile::default();
-            p.name = format!("Network {}", s.profiles.len() + 1);
+            let p = Profile {
+                name: format!("Network {}", s.profiles.len() + 1),
+                ..Profile::default()
+            };
             s.profiles.push(p);
             s.selected = s.profiles.len() - 1;
             s.save();
@@ -879,17 +881,15 @@ fn import_button(ctx: &PageCtx) -> Button {
             if let Some(path) = crate::dialog::open_file(&[
                 ("EasyTier configs (*.toml, *.json)", "*.toml;*.json"),
                 ("All files", "*.*"),
-            ]) {
-                if let Ok(profiles) = import_profiles(&path) {
-                    if !profiles.is_empty() {
-                        let mut s = store.clone();
-                        let first = s.profiles.len();
-                        s.profiles.extend(profiles);
-                        s.selected = first;
-                        s.save();
-                        set.call(s);
-                    }
-                }
+            ]) && let Ok(profiles) = import_profiles(&path)
+                && !profiles.is_empty()
+            {
+                let mut s = store.clone();
+                let first = s.profiles.len();
+                s.profiles.extend(profiles);
+                s.selected = first;
+                s.save();
+                set.call(s);
             }
         })
 }
@@ -1203,21 +1203,21 @@ fn proxies_panel(ctx: &PageCtx, p: &Profile) -> Element {
             .column_spacing(12.0)
             .into(),
         ];
-        if p.enable_vpn_portal {
-            if let Some(net) = ctx.snap.net(&p.id) {
-                if let Some(cfg) = net.vpn_portal_cfg.clone() {
-                    body.push(vpn_portal_viewer(cfg));
-                } else {
-                    body.push(
-                        text_block(
-                            "Connect this network to make Polaris publish a WireGuard client \
+        if p.enable_vpn_portal
+            && let Some(net) = ctx.snap.net(&p.id)
+        {
+            if let Some(cfg) = net.vpn_portal_cfg.clone() {
+                body.push(vpn_portal_viewer(cfg));
+            } else {
+                body.push(
+                    text_block(
+                        "Connect this network to make Polaris publish a WireGuard client \
                              config here.",
-                        )
-                        .font_size(12.0)
-                        .opacity(0.6)
-                        .into(),
-                    );
-                }
+                    )
+                    .font_size(12.0)
+                    .opacity(0.6)
+                    .into(),
+                );
             }
         }
         card("VPN portal", vstack(body).spacing(14.0).into())
@@ -1320,7 +1320,7 @@ fn port_forward_header() -> Element {
 fn port_forward_row(ctx: &PageCtx, p: &Profile, i: usize) -> Element {
     let pf = p.port_forwards[i].clone();
     let proto_options: Vec<String> = vec!["tcp".into(), "udp".into()];
-    let proto_idx = if pf.proto == "udp" { 1 } else { 0 } as i32;
+    let proto_idx = if pf.proto == "udp" { 1 } else { 0 };
 
     let proto = ComboBox::new(proto_options)
         .selected_index(proto_idx)
@@ -2091,7 +2091,10 @@ pub fn about_page() -> Element {
             .opacity(0.7)
             .wrap(),
             link("GNU GPL v3.0", "https://www.gnu.org/licenses/gpl-3.0.html"),
-            link("Polaris source code (GitHub)", "https://github.com/l5z12/polaris_et"),
+            link(
+                "Polaris source code (GitHub)",
+                "https://github.com/l5z12/polaris_et",
+            ),
         ))
         .spacing(6.0)
         .into(),
@@ -2282,7 +2285,7 @@ pub fn diagnostics_page(ctx: &PageCtx) -> Element {
     let toolbar: Element = hstack((
         button("Export logs…").on_click(export_logs),
         button("Open logs folder").on_click(open_logs_folder),
-        button("Clear").on_click(|| crate::logging::clear()),
+        button("Clear").on_click(crate::logging::clear),
     ))
     .spacing(8.0)
     .into();
