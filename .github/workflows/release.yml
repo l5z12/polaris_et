@@ -23,8 +23,10 @@ jobs:
         include:
           - arch: x64
             target: x86_64-pc-windows-msvc
+            tpdir: x86_64 # easytier/third_party/<tpdir> — Npcap Packet.dll/.lib
           - arch: arm64
             target: aarch64-pc-windows-msvc # cross-compiled on the x64 runner
+            tpdir: arm64
     steps:
       - uses: actions/checkout@v4
 
@@ -48,6 +50,7 @@ jobs:
           Copy-Item "$out/wintun.dll"                              $stage/
           Copy-Item "$out/Microsoft.WindowsAppRuntime.Bootstrap.dll" $stage/
           Copy-Item "$out/resources.pri"                           $stage/
+          Copy-Item "easytier/third_party/${{ matrix.tpdir }}/Packet.dll" $stage/
           Copy-Item LICENSE, README.md, CREDITS.md                 $stage/
           Compress-Archive -Path "$stage/*" -DestinationPath "$stage.zip" -Force
 
@@ -84,5 +87,6 @@ jobs:
             **Requires the [Windows App SDK runtime](https://learn.microsoft.com/windows/apps/windows-app-sdk/downloads)**
             (this is a framework-dependent build). Keep every file in the zip
             together — `polaris_et.exe` needs `wintun.dll`,
-            `Microsoft.WindowsAppRuntime.Bootstrap.dll`, and `resources.pri`
-            beside it. For VPN (TUN) mode, run as administrator — see the README.
+            `Microsoft.WindowsAppRuntime.Bootstrap.dll`, `resources.pri`, and
+            `Packet.dll` beside it. For VPN (TUN) mode, run as administrator —
+            see the README.

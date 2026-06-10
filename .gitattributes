@@ -1,0 +1,8 @@
+# Vendored native binaries — never apply text/EOL normalization, which would
+# corrupt them (e.g. the small WinDivert64.sys stub git otherwise sniffs as text).
+*.dll binary
+*.lib binary
+*.sys binary
+*.ico binary
+*.pri binary
+*.exe binary

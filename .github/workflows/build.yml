@@ -24,8 +24,10 @@ jobs:
         include:
           - arch: x64
             target: x86_64-pc-windows-msvc
+            tpdir: x86_64 # easytier/third_party/<tpdir> — Npcap Packet.dll/.lib
           - arch: arm64
             target: aarch64-pc-windows-msvc # cross-compiled on the x64 runner
+            tpdir: arm64
     steps:
       - uses: actions/checkout@v4
 
@@ -54,6 +56,9 @@ jobs:
           Copy-Item "$out/wintun.dll"                              dist/
           Copy-Item "$out/Microsoft.WindowsAppRuntime.Bootstrap.dll" dist/
           Copy-Item "$out/resources.pri"                           dist/
+          # EasyTier (via pnet) load-time imports packet.dll (Npcap/WinPcap), so
+          # ship it or the app won't launch on machines without Npcap installed.
+          Copy-Item "easytier/third_party/${{ matrix.tpdir }}/Packet.dll" dist/
           Copy-Item LICENSE, README.md, CREDITS.md                 dist/
           # Artifact names can't contain / \ : * ? " < > | — sanitize the branch
           # name (e.g. feature/foo) and append arch + short SHA.
