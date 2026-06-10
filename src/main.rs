@@ -17,6 +17,7 @@ mod config;
 mod dialog;
 mod elevate;
 mod engine;
+mod i18n;
 mod instance;
 mod logging;
 mod tray;
@@ -42,6 +43,14 @@ fn root(cx: &mut RenderCx, engine: &Engine) -> Element {
     let initial = cx.use_memo((), Store::load);
 
     let (store, set_store) = cx.use_state(initial);
+
+    // Apply the UI language synchronously, before any child renders this pass.
+    // The host re-renders from the root and rebuilds the whole tree, so setting
+    // the global here means every `i18n::t()` below already sees the new
+    // language; the re-render is driven by `store` changing like any setting.
+    let language = store.settings.language;
+    i18n::set(language);
+
     let (tab, set_tab) = cx.use_state(String::from("home"));
     let (pane_open, set_pane_open) = cx.use_state(true);
     // Network-editor sub-tab. Lives here (not in `body_view`) so that clicking
@@ -131,36 +140,50 @@ fn root(cx: &mut RenderCx, engine: &Engine) -> Element {
     let nav_select = cx.use_callback((), {
         let set_tab = set_tab.clone();
         move |t: String| {
-            if !t.is_empty() {
-                set_tab.call(t);
+            // Item tags carry a language suffix (see `items`); strip it back to
+            // the bare tag the page dispatch in `ui::body_view` expects.
+            let base = t.split('@').next().unwrap_or("").to_string();
+            if !base.is_empty() {
+                set_tab.call(base);
             }
         }
     });
-    let items = cx.use_memo(diag_enabled, move || {
+    // Keyed on `language` too, so the sidebar labels rebuild on a language switch.
+    let items = cx.use_memo((diag_enabled, language), move || {
+        // Suffix each tag with the effective language. Relabeling rebuilds the
+        // NavigationView's item list, which clears WinUI's selection; the
+        // reconciler then skips the *unchanged* selected_tag and the sidebar is
+        // left with nothing selected. Folding the language into the tag makes the
+        // selected_tag value change too, so it is re-applied and re-matches. The
+        // suffix is stripped again in `nav_select`.
+        let sfx = if crate::i18n::is_zh() { "zh" } else { "en" };
+        let tag = |t: &str| format!("{t}@{sfx}");
         let mut v = vec![
-            NavViewItem::new("Home").tag("home").icon(SymbolGlyph::Home),
-            NavViewItem::new("Network")
-                .tag("network")
+            NavViewItem::new(i18n::t("Home"))
+                .tag(tag("home"))
+                .icon(SymbolGlyph::Home),
+            NavViewItem::new(i18n::t("Network"))
+                .tag(tag("network"))
                 .icon(SymbolGlyph::Edit),
-            NavViewItem::new("Peers")
-                .tag("peers")
+            NavViewItem::new(i18n::t("Peers"))
+                .tag(tag("peers"))
                 .icon(SymbolGlyph::People),
-            NavViewItem::new("Activity")
-                .tag("logs")
+            NavViewItem::new(i18n::t("Activity"))
+                .tag(tag("logs"))
                 .icon(SymbolGlyph::Sync),
-            NavViewItem::new("Settings")
-                .tag("settings")
+            NavViewItem::new(i18n::t("Settings"))
+                .tag(tag("settings"))
                 .icon(SymbolGlyph::Setting),
-            NavViewItem::new("About")
-                .tag("about")
+            NavViewItem::new(i18n::t("About"))
+                .tag(tag("about"))
                 .icon(SymbolGlyph::Help),
         ];
         // Diagnostics page appears between Settings and About when enabled.
         if diag_enabled {
             v.insert(
                 5,
-                NavViewItem::new("Diagnostics")
-                    .tag("diagnostics")
+                NavViewItem::new(i18n::t("Diagnostics"))
+                    .tag(tag("diagnostics"))
                     .icon(SymbolGlyph::Find),
             );
         }
@@ -197,8 +220,10 @@ fn root(cx: &mut RenderCx, engine: &Engine) -> Element {
         .tall(true)
         .min_height(48.0);
 
+    // Must match the language-suffixed item tags built above.
+    let nav_suffix = if i18n::is_zh() { "zh" } else { "en" };
     let nav = NavigationView::new(items, body)
-        .selected_tag(&*tab)
+        .selected_tag(format!("{}@{}", &*tab, nav_suffix))
         .on_selection_changed(nav_select)
         .pane_display_mode(NavViewPaneDisplayMode::Left)
         .pane_open(pane_open)
@@ -265,6 +290,9 @@ fn main() -> Result<()> {
     // EasyTier's events are captured too. Off unless the user enabled
     // diagnostics; the live level is (re)applied from `root` via a render effect.
     let dprefs = Store::load().settings;
+    // Apply the saved language before the tray spawns so its first tooltip/menu
+    // are already localized; `root` re-applies it on every render.
+    i18n::set(dprefs.language);
     logging::init(if dprefs.diagnostics_enabled {
         dprefs.log_level
     } else {

@@ -111,23 +111,28 @@ impl Snapshot {
 
     /// One-line connection summary for the system-tray tooltip.
     pub fn status_summary(&self) -> String {
+        use crate::i18n::{t, tn};
         let connected = self.connected_count();
         if connected > 0 {
-            format!("{} connected · {} peers", connected, self.total_peers())
+            format!(
+                "{} · {}",
+                tn("{n} connected", connected),
+                tn("{n} peers", self.total_peers())
+            )
         } else if self
             .nets
             .values()
             .any(|n| matches!(n.status, Status::Connecting))
         {
-            "Connecting…".to_string()
+            t("Connecting…")
         } else if self
             .nets
             .values()
             .any(|n| matches!(n.status, Status::Error))
         {
-            "Error".to_string()
+            t("Error")
         } else {
-            "Not connected".to_string()
+            t("Not connected")
         }
     }
 }

@@ -181,8 +181,12 @@ unsafe fn show_menu(hwnd: HWND) {
         let Ok(menu) = CreatePopupMenu() else {
             return;
         };
-        let _ = AppendMenuW(menu, MF_STRING, ID_SHOW as usize, w!("Show Polaris"));
-        let _ = AppendMenuW(menu, MF_STRING, ID_QUIT as usize, w!("Quit"));
+        // Built at runtime so they follow the current UI language. AppendMenuW
+        // copies the string, so the temporaries can drop right after.
+        let show = wide(&crate::i18n::t("Show Polaris"));
+        let quit = wide(&crate::i18n::t("Quit"));
+        let _ = AppendMenuW(menu, MF_STRING, ID_SHOW as usize, PCWSTR(show.as_ptr()));
+        let _ = AppendMenuW(menu, MF_STRING, ID_QUIT as usize, PCWSTR(quit.as_ptr()));
 
         let mut pt = POINT::default();
         let _ = GetCursorPos(&mut pt);
@@ -289,6 +293,11 @@ unsafe fn quit() {
 
 fn tooltip(engine: &Engine) -> String {
     format!("Polaris — {}", engine.snapshot().status_summary())
+}
+
+/// Build a null-terminated UTF-16 buffer for a Win32 `PCWSTR` argument.
+fn wide(s: &str) -> Vec<u16> {
+    s.encode_utf16().chain(std::iter::once(0)).collect()
 }
 
 /// Copy `s` (UTF-16, truncated, null-terminated) into a fixed wide buffer.
@@ -443,8 +452,8 @@ unsafe fn hide_to_tray(hwnd: HWND) {
     // First time only: tell the user where the window went.
     if !HINT_SHOWN.swap(true, Ordering::Relaxed) {
         show_hint(
-            "Polaris is still running",
-            "Click the tray icon to reopen, or right-click it to quit.",
+            &crate::i18n::t("Polaris is still running"),
+            &crate::i18n::t("Click the tray icon to reopen, or right-click it to quit."),
         );
     }
 }

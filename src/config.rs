@@ -17,6 +17,8 @@ use easytier::launcher::{NetworkConfig, NetworkingMethod};
 use easytier::proto::api::manage::PortForwardConfig as PbPortForward;
 use serde::{Deserialize, Serialize};
 
+use crate::i18n::{Language, ts};
+
 /// A process-unique, persisted id used to key a profile's running network.
 fn gen_id() -> String {
     static COUNTER: AtomicU64 = AtomicU64::new(0);
@@ -48,11 +50,11 @@ impl JoinMethod {
         JoinMethod::Standalone,
     ];
     pub fn label(self) -> &'static str {
-        match self {
+        ts(match self {
             JoinMethod::PublicServer => "Public / shared server",
             JoinMethod::Manual => "Specific peers",
             JoinMethod::Standalone => "Standalone (host)",
-        }
+        })
     }
     pub fn index(self) -> i32 {
         Self::ALL.iter().position(|m| *m == self).unwrap_or(0) as i32
@@ -635,11 +637,11 @@ pub enum Theme {
 impl Theme {
     pub const ALL: [Theme; 3] = [Theme::System, Theme::Light, Theme::Dark];
     pub fn label(self) -> &'static str {
-        match self {
+        ts(match self {
             Theme::System => "Use system setting",
             Theme::Light => "Light",
             Theme::Dark => "Dark",
-        }
+        })
     }
     pub fn index(self) -> i32 {
         Self::ALL.iter().position(|t| *t == self).unwrap_or(0) as i32
@@ -667,12 +669,12 @@ impl Material {
         Material::Solid,
     ];
     pub fn label(self) -> &'static str {
-        match self {
+        ts(match self {
             Material::Mica => "Mica",
             Material::MicaAlt => "Mica Alt",
             Material::Acrylic => "Acrylic",
             Material::Solid => "Solid (none)",
-        }
+        })
     }
     pub fn index(self) -> i32 {
         Self::ALL.iter().position(|m| *m == self).unwrap_or(0) as i32
@@ -703,14 +705,14 @@ impl LogLevel {
         LogLevel::Trace,
     ];
     pub fn label(self) -> &'static str {
-        match self {
+        ts(match self {
             LogLevel::Off => "Off",
             LogLevel::Error => "Error",
             LogLevel::Warn => "Warning",
             LogLevel::Info => "Info",
             LogLevel::Debug => "Debug",
             LogLevel::Trace => "Trace (verbose)",
-        }
+        })
     }
     /// `tracing` filter directive token.
     pub fn as_filter(self) -> &'static str {
@@ -756,6 +758,9 @@ pub struct Settings {
     /// Delete log files older than this many days (run on startup).
     #[serde(default = "default_log_retention")]
     pub log_retention_days: u32,
+    /// UI language; `System` follows the OS locale (English unless Chinese).
+    #[serde(default)]
+    pub language: Language,
 }
 
 impl Default for Settings {
@@ -771,6 +776,7 @@ impl Default for Settings {
             diagnostics_enabled: false,
             log_level: LogLevel::Info,
             log_retention_days: 7,
+            language: Language::System,
         }
     }
 }

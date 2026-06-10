@@ -64,6 +64,14 @@ OutputBaseFilename={#OutputBase}
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
+; Simplified Chinese is an unofficial Inno Setup translation (kira-96). The CI
+; release job downloads ChineseSimplified.isl and passes its path via
+; /DChineseIsl; the installer then auto-selects it on a Chinese Windows and lets
+; the user switch at the language prompt. Omitted (English only) when absent, so
+; a plain `iscc packaging\polaris.iss` still builds.
+#ifdef ChineseIsl
+Name: "chinesesimplified"; MessagesFile: "{#ChineseIsl}"
+#endif
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked

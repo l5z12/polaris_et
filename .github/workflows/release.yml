@@ -107,15 +107,26 @@ jobs:
           $ver      = "${{ github.ref_name }}".TrimStart('v') # 0.1.0 / 0.1.0-rc1
           $verNum   = ($ver -split '-')[0]                    # numeric VERSIONINFO
           $archSpec = if ("${{ matrix.arch }}" -eq "arm64") { "arm64" } else { "x64os" }
-          & $iscc /Qp `
-            "/DAppVersion=$ver" `
-            "/DVersionInfo=$verNum" `
-            "/DArch=${{ matrix.arch }}" `
-            "/DArchSpec=$archSpec" `
-            "/DSourceDir=$((Resolve-Path payload).Path)" `
-            "/DOutputDir=$((Get-Location).Path)" `
-            "/DOutputBase=$stage-setup" `
-            packaging/polaris.iss
+          # Simplified-Chinese wizard translation (unofficial, kira-96). Best
+          # effort — the installer falls back to English-only if it can't fetch.
+          $isl = Join-Path (Get-Location) "ChineseSimplified.isl"
+          try {
+            Invoke-WebRequest -UseBasicParsing -OutFile $isl `
+              "https://raw.githubusercontent.com/kira-96/Inno-Setup-Chinese-Simplified-Translation/main/ChineseSimplified.isl"
+          } catch { Write-Host "Chinese .isl download failed: $_" }
+          $isccArgs = @(
+            "/Qp",
+            "/DAppVersion=$ver",
+            "/DVersionInfo=$verNum",
+            "/DArch=${{ matrix.arch }}",
+            "/DArchSpec=$archSpec",
+            "/DSourceDir=$((Resolve-Path payload).Path)",
+            "/DOutputDir=$((Get-Location).Path)",
+            "/DOutputBase=$stage-setup"
+          )
+          if (Test-Path $isl) { $isccArgs += "/DChineseIsl=$isl" }
+          $isccArgs += "packaging/polaris.iss"
+          & $iscc @isccArgs
           if ($LASTEXITCODE -ne 0) { throw "ISCC failed ($LASTEXITCODE)" }
 
       - name: Upload build artifact
