@@ -1,0 +1,45 @@
+name: Setup Polaris build
+description: Install Rust + protoc and configure the environment for building Polaris.
+
+inputs:
+  target:
+    description: Rust target triple to install (and build for).
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Install Rust (MSVC)
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: ${{ inputs.target }}
+
+    - name: Install protoc
+      uses: arduino/setup-protoc@v3
+      with:
+        # github.token is the auto-provided GITHUB_TOKEN; the `secrets` context
+        # isn't available inside a composite action, but `github` is. Used only
+        # to avoid the GitHub API rate limit when fetching protoc.
+        repo-token: ${{ github.token }}
+
+    - name: Configure environment
+      shell: pwsh
+      run: |
+        # `.cargo/config.toml` is git-ignored, so set the bits the build needs as
+        # env vars here. The local proxy that file also configures is NOT
+        # reproduced — CI has direct network access.
+        "CARGO_NET_GIT_FETCH_WITH_CLI=true" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+        "CARGO_TERM_COLOR=always"           | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+        # windows-reactor's build.rs locates the Windows App SDK nupkgs relative
+        # to CARGO_WORKSPACE_DIR (normally injected by the windows-rs workspace,
+        # absent for a git dependency). Point it at the checkout root — absolute,
+        # forward slashes, trailing slash.
+        $ws = "${{ github.workspace }}".Replace('\','/').TrimEnd('/') + '/'
+        "CARGO_WORKSPACE_DIR=$ws" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+        # prost-build (an EasyTier dependency) needs protoc via PROTOC.
+        "PROTOC=$((Get-Command protoc).Source)" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+
+    - name: Cache cargo + target
+      uses: Swatinem/rust-cache@v2
+      with:
+        key: ${{ inputs.target }} # keep x64 and arm64 caches separate

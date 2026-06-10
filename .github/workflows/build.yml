@@ -1,0 +1,70 @@
+name: Build
+
+# Build release binaries (x64 + arm64) on every branch push (and on demand) and
+# upload them as workflow artifacts for testing. Tag pushes are handled by
+# release.yml instead — `branches: ['**']` matches only branch pushes, not tags.
+on:
+  push:
+    branches: ["**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true # newer push supersedes an in-flight build
+
+jobs:
+  build:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false # one arch failing shouldn't cancel the other
+      matrix:
+        include:
+          - arch: x64
+            target: x86_64-pc-windows-msvc
+          - arch: arm64
+            target: aarch64-pc-windows-msvc # cross-compiled on the x64 runner
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup
+        with:
+          target: ${{ matrix.target }}
+
+      - name: Build (release)
+        # First run is slow: compiles the EasyTier core and the windows-rs crates
+        # from git and downloads the Windows App SDK payloads. The cache makes
+        # later pushes much faster.
+        run: cargo build --release --bin polaris_et --target ${{ matrix.target }}
+
+      - name: Stage artifact
+        id: stage
+        shell: pwsh
+        run: |
+          $out = "target/${{ matrix.target }}/release"
+          New-Item -ItemType Directory -Force dist | Out-Null
+          # Full runtime payload — the exe alone won't start. build.rs / the
+          # windows-reactor build script drop these beside the exe:
+          #   wintun.dll                              — WireGuard-signed TUN driver
+          #   Microsoft.WindowsAppRuntime.Bootstrap.dll — boots the Windows App SDK
+          #   resources.pri                           — XAML control resources
+          Copy-Item "$out/polaris_et.exe"                          dist/
+          Copy-Item "$out/wintun.dll"                              dist/
+          Copy-Item "$out/Microsoft.WindowsAppRuntime.Bootstrap.dll" dist/
+          Copy-Item "$out/resources.pri"                           dist/
+          Copy-Item LICENSE, README.md, CREDITS.md                 dist/
+          # Artifact names can't contain / \ : * ? " < > | — sanitize the branch
+          # name (e.g. feature/foo) and append arch + short SHA.
+          $safe = "${{ github.ref_name }}" -replace '[/\\:*?"<>|]','-'
+          $short = "${{ github.sha }}".Substring(0,7)
+          "name=polaris-$safe-${{ matrix.arch }}-$short" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.stage.outputs.name }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14

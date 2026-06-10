@@ -1,0 +1,88 @@
+name: Release
+
+# Publish a GitHub Release (x64 + arm64) whenever a version tag is pushed, e.g.
+#   git tag v0.1.0 && git push origin v0.1.0
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read # the build job needs no write; the release job opts in below
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            target: x86_64-pc-windows-msvc
+          - arch: arm64
+            target: aarch64-pc-windows-msvc # cross-compiled on the x64 runner
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup
+        with:
+          target: ${{ matrix.target }}
+
+      - name: Build (release)
+        # First run is slow: compiles the EasyTier core and the windows-rs crates
+        # from git and downloads the Windows App SDK payloads.
+        run: cargo build --release --bin polaris_et --target ${{ matrix.target }}
+
+      - name: Package
+        shell: pwsh
+        run: |
+          $stage = "polaris-${{ github.ref_name }}-${{ matrix.arch }}"
+          $out = "target/${{ matrix.target }}/release"
+          New-Item -ItemType Directory -Force $stage | Out-Null
+          # Full runtime payload — see build.yml for what each file is for.
+          Copy-Item "$out/polaris_et.exe"                          $stage/
+          Copy-Item "$out/wintun.dll"                              $stage/
+          Copy-Item "$out/Microsoft.WindowsAppRuntime.Bootstrap.dll" $stage/
+          Copy-Item "$out/resources.pri"                           $stage/
+          Copy-Item LICENSE, README.md, CREDITS.md                 $stage/
+          Compress-Archive -Path "$stage/*" -DestinationPath "$stage.zip" -Force
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: zip-${{ matrix.arch }}
+          path: polaris-*-${{ matrix.arch }}.zip
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest # just collects the zips and calls the API
+    permissions:
+      contents: write # create the release + upload assets
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true # flatten zip-x64/ and zip-arm64/ into artifacts/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*.zip
+          generate_release_notes: true
+          # Tags with a pre-release suffix (e.g. v0.1.0-rc1) ship as pre-releases.
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          body: |
+            Standalone Windows builds — pick the zip for your CPU:
+            `*-x64.zip` for Intel/AMD, `*-arm64.zip` for Windows on ARM.
+
+            **Requires the [Windows App SDK runtime](https://learn.microsoft.com/windows/apps/windows-app-sdk/downloads)**
+            (this is a framework-dependent build). Keep every file in the zip
+            together — `polaris_et.exe` needs `wintun.dll`,
+            `Microsoft.WindowsAppRuntime.Bootstrap.dll`, and `resources.pri`
+            beside it. For VPN (TUN) mode, run as administrator — see the README.
