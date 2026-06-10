@@ -1,0 +1,88 @@
+[package]
+name = "polaris_et"
+version = "0.1.0"
+edition = "2024"
+description = "Polaris — a fast, friendly WinUI client for the EasyTier mesh VPN"
+repository = "https://github.com/l5z12/polaris_et"
+license = "GPL-3.0-only"
+readme = "README.md"
+
+# Subsystem=windows so the GUI launches without a console window.
+[[bin]]
+name = "polaris_et"
+path = "src/main.rs"
+
+[features]
+# Build a VPN-capable MSIX. Embeds a `highestAvailable` UAC manifest so the
+# packaged app can create the TUN adapter; pair with the `allowElevation`
+# restricted capability in packaging/AppxManifest.xml. Requires Windows 11.
+# Do NOT use for the standalone exe — it would force a UAC prompt for admins on
+# every launch instead of the default opt-in elevation.
+msix = []
+
+[dependencies]
+# React-style WinUI 3 UI, backed by Microsoft's windows-rs reactor crate.
+# Pinned: `main` moves fast and the reactor API is unstable, so an unpinned dep
+# silently breaks the build when HEAD advances. Held at cd50817 — the newer
+# a5092ed (codegen PR #4541) regressed Button accent/subtle styling (the widget
+# emits Prop::Style but the backend reads Prop::StyleVariant) and dropped the
+# WinAppSDK auto-bootstrap. Bump this rev deliberately and migrate call sites.
+windows-reactor = { git = "https://github.com/microsoft/windows-rs", rev = "cd508172b8be2578191edbe739cf0cc56c4158e6" }
+
+# EasyTier mesh-VPN core, embedded as a library (no external easytier-core.exe).
+# Feature set mirrors EasyTier's default (TCP/UDP/WS/QUIC/FakeTcp transports,
+# WireGuard crypto, subnet proxy, SOCKS5 portal, magic DNS) for P2P/NAT-traversal
+# parity with the official client. `quic` (quinn) and `faketcp` (flume) are pure
+# Rust — only `kcp` (kcp-sys) needs a C toolchain, so it's left out to keep the
+# build self-contained; `kcp` is relay-proxy only, not used for hole-punching.
+easytier = { git = "https://github.com/EasyTier/EasyTier", rev = "c0f42ebe8c0b18e49370ae810b13fba1bdbbb811", default-features = false, features = [
+    "tun",
+    "websocket",
+    "wireguard",
+    "smoltcp",
+    "socks5",
+    "magic-dns",
+    "zstd",
+    "quic",
+    "faketcp",
+] }
+
+tokio = { version = "1", features = ["rt-multi-thread", "time", "sync", "macros"] }
+anyhow = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+dirs = "5"
+
+# Diagnostics: one global `tracing` subscriber, installed before the engine, that
+# fans events to a daily log file and an in-app log panel (Settings →
+# Diagnostics). EasyTier's `try_init` then no-ops, so its events flow in too.
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "chrono"] }
+chrono = "0.4"
+
+# Native file dialogs (import/export) and the system-tray icon.
+windows = { version = "0.62", features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_Storage_Packaging_Appx",
+    "Win32_System_Com",
+    "Win32_System_Com_StructuredStorage",
+    "Win32_System_DataExchange",
+    "Win32_System_LibraryLoader",
+    "Win32_System_Memory",
+    "Win32_System_Threading",
+    "Win32_System_Variant",
+    "Win32_UI_Shell",
+    "Win32_UI_Shell_Common",
+    "Win32_UI_Shell_PropertiesSystem",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_Graphics_Gdi",
+] }
+
+[build-dependencies]
+# Embeds the application icon (assets/polaris.ico) into the exe.
+winresource = "0.1"
+
+[profile.dev]
+# EasyTier's instance threads rely on unwinding; keep the default unwind panic.
+panic = "unwind"

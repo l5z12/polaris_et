@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  MSIX manifest for packaging Polaris as a full-trust desktop app (Microsoft
+  Store or sideload). See PACKAGING.md. Set Identity Name/Publisher/Version to
+  match your Store reservation and signing certificate before packing.
+-->
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  IgnorableNamespaces="uap rescap">
+
+  <Identity
+    Name="Polaris.EasyTier"
+    Publisher="CN=Polaris"
+    Version="0.1.0.0"
+    ProcessorArchitecture="x64" />
+
+  <Properties>
+    <DisplayName>Polaris</DisplayName>
+    <PublisherDisplayName>Polaris</PublisherDisplayName>
+    <Description>A fast, friendly WinUI client for the EasyTier mesh VPN.</Description>
+    <Logo>Assets\StoreLogo.png</Logo>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.19041.0" MaxVersionTested="10.0.22621.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="en-us" />
+  </Resources>
+
+  <Applications>
+    <Application Id="Polaris" Executable="polaris_et.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements
+        DisplayName="Polaris"
+        Description="EasyTier mesh VPN client"
+        BackgroundColor="transparent"
+        Square150x150Logo="Assets\Square150x150Logo.png"
+        Square44x44Logo="Assets\Square44x44Logo.png">
+        <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" ShortName="Polaris" />
+      </uap:VisualElements>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <Capability Name="internetClient" />
+    <Capability Name="internetClientServer" />
+    <Capability Name="privateNetworkClientServer" />
+    <!-- Lets the bundled Win32 exe run as a full-trust desktop app. -->
+    <rescap:Capability Name="runFullTrust" />
+    <!-- Allows the app to elevate: paired with the `highestAvailable` exe
+         manifest from a `--features msix` build, this lets EasyTier create the
+         TUN adapter. Requires Windows 11. `allowElevation` is a restricted
+         capability — Store submissions must justify it; drop this line (and the
+         `msix` feature) for a proxy-only package. See PACKAGING.md. -->
+    <rescap:Capability Name="allowElevation" />
+  </Capabilities>
+</Package>

@@ -1,0 +1,39 @@
+# --- Rust ---
+/target
+# Backup files from `cargo fmt` / rustfmt
+**/*.rs.bk
+# MSVC debug symbols
+*.pdb
+
+# --- windows-reactor build.rs staging dirs (downloaded WinAppSDK payloads) ---
+/temp
+/winmd
+/tools
+*.nupkg
+build.log
+
+# --- MSIX / Appx packaging artifacts ---
+*.msix
+*.msixbundle
+*.appx
+*.appxbundle
+# Code-signing certificates & keys — never commit these
+*.pfx
+*.cer
+*.snk
+
+# --- Local Cargo config ---
+# Machine-specific: absolute CARGO_WORKSPACE_DIR / PROTOC paths and a local
+# proxy. Required to build — see BUILDING.md to recreate it.
+/.cargo/config.toml
+
+# --- IDE / editor ---
+/.vs/
+/.idea/
+*.user
+*.suo
+
+# --- OS ---
+Thumbs.db
+Desktop.ini
+.DS_Store
