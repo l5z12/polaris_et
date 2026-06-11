@@ -128,33 +128,35 @@ pub fn is_zh() -> bool {
     EFFECTIVE.load(Ordering::Relaxed) == ZH
 }
 
-/// Look up `key` in the effective locale, falling back to English, then to the
-/// key itself (a missing-key signal).
-fn lookup(key: &str) -> &'static str {
+/// Translate a key to an owned string.
+///
+/// Unknown keys are returned **verbatim** rather than panicking: the translating
+/// helpers (`card`, `stat`, `my_node_chips`'s chip labels, …) are also handed
+/// already-built dynamic strings — a section title like `"My net (3 peers)"` or
+/// a listener label `"Listener 1"` — which must pass through unchanged. A real
+/// missing key therefore surfaces as the raw key in the UI (and is caught by the
+/// `locales` key test), never a crash.
+pub fn t(key: &str) -> String {
+    if is_zh()
+        && let Some(s) = zh_map().get(key)
+    {
+        return s.clone();
+    }
+    match en_map().get(key) {
+        Some(s) => s.clone(),
+        None => key.to_string(),
+    }
+}
+
+/// Translate a `&'static str` key to a `&'static str` — for `enum::label()`
+/// methods that must keep that return type. Unknown keys return themselves.
+pub fn ts(key: &'static str) -> &'static str {
     if is_zh()
         && let Some(s) = zh_map().get(key)
     {
         return s;
     }
-    if let Some(s) = en_map().get(key) {
-        return s;
-    }
-    // en.json is the complete source of truth, so a miss is a programmer error
-    // (caught by the locale-key test / debug assert) rather than a real path.
-    debug_assert!(false, "missing i18n key: {key}");
-    "?"
-}
-
-/// Translate a namespaced key to an owned string (composes with `impl
-/// Into<String>` widget setters and `format!`).
-pub fn t(key: &str) -> String {
-    lookup(key).to_string()
-}
-
-/// Translate a `&'static str` key to a `&'static str` — for `enum::label()`
-/// methods that must keep that return type.
-pub fn ts(key: &'static str) -> &'static str {
-    lookup(key)
+    en_map().get(key).map(String::as_str).unwrap_or(key)
 }
 
 /// Translate a key whose value contains `{n}`, then substitute the count, e.g.
