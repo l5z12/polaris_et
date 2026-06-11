@@ -113,7 +113,7 @@ unsafe fn run(engine: Engine) {
 
         // The application icon embedded by build.rs (resource id 1), falling
         // back to the generic icon if it can't be loaded.
-        let hicon = LoadIconW(Some(hinstance), PCWSTR(std::ptr::dangling::<u16>()))
+        let hicon = LoadIconW(Some(hinstance), app_icon_id())
             .or_else(|_| LoadIconW(None, IDI_APPLICATION))
             .unwrap_or_default();
 
@@ -300,6 +300,16 @@ fn wide(s: &str) -> Vec<u16> {
     s.encode_utf16().chain(std::iter::once(0)).collect()
 }
 
+/// `MAKEINTRESOURCEW(1)` — the app icon embedded by build.rs at resource id 1.
+///
+/// A resource id is passed as a pseudo-pointer whose low word holds the id; it
+/// is never dereferenced. NOTE: `ptr::dangling::<u16>()` is **not** id 1 — it
+/// yields the alignment of `u16` (2), so it requested a nonexistent resource and
+/// Windows fell back to the generic icon.
+fn app_icon_id() -> PCWSTR {
+    PCWSTR(std::ptr::without_provenance::<u16>(1))
+}
+
 /// Copy `s` (UTF-16, truncated, null-terminated) into a fixed wide buffer.
 fn write_wide(buf: &mut [u16], s: &str) {
     let max = buf.len().saturating_sub(1);
@@ -351,7 +361,7 @@ unsafe fn set_window_icon(hwnd: HWND) {
             return;
         };
         let hinst = HINSTANCE(module.0);
-        let id = PCWSTR(std::ptr::dangling::<u16>()); // MAKEINTRESOURCE(1)
+        let id = app_icon_id();
         if let Ok(small) = LoadImageW(Some(hinst), id, IMAGE_ICON, 16, 16, LR_DEFAULTCOLOR) {
             let _ = SendMessageW(
                 hwnd,
