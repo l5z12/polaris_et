@@ -1,4 +1,10 @@
-# Polaris
+<p align="center">
+  <img src="assets/data-line.svg" width="76" alt="Polaris" />
+</p>
+
+<h1 align="center">Polaris</h1>
+
+<p align="center"><b>English</b> · <a href="README.zh.md">简体中文</a></p>
 
 A fast, friendly **WinUI 3** desktop client for the [EasyTier](https://github.com/EasyTier/EasyTier)
 mesh VPN — with the EasyTier core **embedded directly in the app**, so there is

@@ -1,0 +1,177 @@
+/* Polaris homepage — styled in the Fluent design language with plain CSS, so
+   the page ships no component-runtime JavaScript. */
+
+/* Build-time renders both languages; show only the active one. */
+html[data-lang="en"] [lang="zh"],
+html[data-lang="zh"] [lang="en"] {
+  display: none;
+}
+
+:root {
+  --bg: #faf9f8;
+  --layer: #ffffff;
+  --fg: #201f1e;
+  --fg-dim: #605e5c;
+  --stroke: #e1dfdd;
+  --stroke-strong: #c8c6c4;
+  --accent: #0f6cbd;
+  --shadow: 0 1.6px 3.6px rgba(0, 0, 0, 0.1), 0 0.3px 0.9px rgba(0, 0, 0, 0.07);
+  --maxw: 1040px;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1b1a19;
+    --layer: #252423;
+    --fg: #f3f2f1;
+    --fg-dim: #a19f9d;
+    --stroke: #3b3a39;
+    --stroke-strong: #484644;
+    --accent: #2899f5;
+    --shadow: 0 1.6px 3.6px rgba(0, 0, 0, 0.28), 0 0.3px 0.9px rgba(0, 0, 0, 0.22);
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  margin: 0;
+}
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family:
+    "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+.link {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+/* Buttons / links styled as Fluent buttons (4px radius, accent / neutral / subtle). */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 20px;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  font: inherit;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  text-decoration: none;
+}
+.btn.accent {
+  background: var(--accent);
+  color: #fff;
+}
+.btn.neutral {
+  background: var(--layer);
+  color: var(--fg);
+  border-color: var(--stroke-strong);
+}
+.btn.subtle {
+  height: 34px;
+  padding: 0 12px;
+  background: transparent;
+  color: var(--fg);
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: 16px 24px;
+}
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--fg);
+  font-weight: 600;
+  font-size: 17px;
+  text-decoration: none;
+}
+
+main {
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: 0 24px 72px;
+}
+
+.hero {
+  text-align: center;
+  padding: 56px 0 48px;
+}
+.hero-logo {
+  filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.18));
+}
+.hero h1 {
+  margin: 18px 0 8px;
+  font-size: clamp(40px, 7vw, 64px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.tagline {
+  margin: 0 auto;
+  max-width: 640px;
+  font-size: clamp(16px, 2.4vw, 20px);
+  color: var(--fg-dim);
+}
+.cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 28px;
+}
+
+.features h2 {
+  text-align: center;
+  font-size: 28px;
+  margin: 24px 0 28px;
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+.card {
+  background: var(--layer);
+  border: 1px solid var(--stroke);
+  border-radius: 8px;
+  padding: 22px;
+  box-shadow: var(--shadow);
+}
+.card h3 {
+  margin: 0 0 8px;
+  font-size: 17px;
+  font-weight: 600;
+}
+.card p {
+  margin: 0;
+  color: var(--fg-dim);
+  font-size: 14.5px;
+}
+
+.foot {
+  text-align: center;
+  color: var(--fg-dim);
+  font-size: 14px;
+  margin-top: 56px;
+  padding-top: 28px;
+  border-top: 1px solid var(--stroke);
+}
+.foot p {
+  margin: 6px 0;
+}
