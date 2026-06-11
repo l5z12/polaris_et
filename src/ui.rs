@@ -234,10 +234,10 @@ fn page(title: &str, subtitle: &str, mut children: Vec<Element>) -> Element {
 
 /// A titled surface card. `title` may be empty for a chromeless card.
 fn card(title: &str, body: Element) -> Element {
-    let title = t(title);
+    // `title` is an i18n key, or empty for a chromeless card.
     let mut col: Vec<Element> = Vec::new();
     if !title.is_empty() {
-        col.push(text_block(title).font_size(15.0).semibold().into());
+        col.push(text_block(t(title)).font_size(15.0).semibold().into());
     }
     col.push(body);
 
@@ -395,8 +395,8 @@ fn flag_row(items: Vec<Element>) -> Element {
 }
 
 fn live_warning() -> Element {
-    InfoBar::new(t("This network is live"))
-        .message(t("Edits are saved now and apply the next time you reconnect it."))
+    InfoBar::new(t("network.live_title"))
+        .message(t("network.live_message"))
         .informational()
         .is_closable(false)
         .into()
@@ -417,11 +417,11 @@ pub fn home_page(ctx: &PageCtx) -> Element {
     let summary = card(
         "",
         hstack((
-            stat("Connected", format!("{}", snap.connected_count())),
-            stat("Networks", format!("{}", ctx.store.profiles.len())),
-            stat("Peers", format!("{}", snap.total_peers())),
-            stat("Downloaded", human_bytes(snap.total_rx())),
-            stat("Uploaded", human_bytes(snap.total_tx())),
+            stat("home.stat_connected", format!("{}", snap.connected_count())),
+            stat("home.stat_networks", format!("{}", ctx.store.profiles.len())),
+            stat("home.stat_peers", format!("{}", snap.total_peers())),
+            stat("home.stat_downloaded", human_bytes(snap.total_rx())),
+            stat("home.stat_uploaded", human_bytes(snap.total_tx())),
         ))
         .spacing(32.0)
         .into(),
@@ -432,7 +432,7 @@ pub fn home_page(ctx: &PageCtx) -> Element {
     let toolbar = card(
         "",
         grid((
-            text_block(t("Your saved networks"))
+            text_block(t("home.saved_networks"))
                 .font_size(13.0)
                 .opacity(0.7)
                 .vertical_alignment(VerticalAlignment::Center)
@@ -459,20 +459,13 @@ pub fn home_page(ctx: &PageCtx) -> Element {
         children.push(network_card(ctx, idx));
     }
 
-    page(
-        "Networks",
-        "Connect to one or more EasyTier networks at the same time.",
-        children,
-    )
+    page("home.title", "home.subtitle", children)
 }
 
 /// Shown when running without admin: TUN is off, proxies still work.
 fn tun_notice() -> Element {
-    InfoBar::new(t("Running without administrator rights"))
-        .message(t(
-            "VPN mode (the TUN adapter) is disabled. SOCKS5 and port-forward proxies still \
-             work. For full VPN, enable “Always launch as administrator” in Settings.",
-        ))
+    InfoBar::new(t("home.tun_notice_title"))
+        .message(t("home.tun_notice_message"))
         .informational()
         .is_closable(false)
         .into()
@@ -495,7 +488,7 @@ fn network_card(ctx: &PageCtx, idx: usize) -> Element {
     let action: Element = if live {
         let e = ctx.engine.clone();
         let id = prof.id.clone();
-        button(t("Disconnect"))
+        button(t("common.disconnect"))
             .on_click(move || e.stop(id.clone()))
             .min_width(128.0)
             .into()
@@ -503,7 +496,7 @@ fn network_card(ctx: &PageCtx, idx: usize) -> Element {
         let e = ctx.engine.clone();
         let id = prof.id.clone();
         let cfg = prof.to_network_config();
-        button(t("Connect"))
+        button(t("common.connect"))
             .accent()
             .on_click(move || e.start(id.clone(), cfg.clone()))
             .min_width(128.0)
@@ -514,7 +507,7 @@ fn network_card(ctx: &PageCtx, idx: usize) -> Element {
         let set = ctx.set_store.clone();
         let set_tab = ctx.set_tab.clone();
         let store = ctx.store.clone();
-        button(t("Edit"))
+        button(t("common.edit"))
             .subtle()
             .icon(SymbolGlyph::Edit)
             .on_click(move || {
@@ -547,13 +540,13 @@ fn network_card(ctx: &PageCtx, idx: usize) -> Element {
         text_block(t(status.label()))
             .font_size(12.0)
             .foreground(color_for(status)),
-        text_block(format!("{}  {}", t("Network"), prof.network_name))
+        text_block(format!("{}  {}", t("home.field_network"), prof.network_name))
             .font_size(12.0)
             .opacity(0.65),
         text_block(format!("IP  {ip}"))
             .font_size(12.0)
             .opacity(0.65),
-        text_block(format!("{}  {peers}", t("Peers")))
+        text_block(format!("{}  {peers}", t("home.field_peers")))
             .font_size(12.0)
             .opacity(0.65),
         text_block(format!("↓ {}  ↑ {}", human_bytes(rx), human_bytes(tx)))
@@ -565,7 +558,7 @@ fn network_card(ctx: &PageCtx, idx: usize) -> Element {
     let mut body: Vec<Element> = vec![top.into(), info.into()];
     if let Some(err) = net.as_ref().and_then(|n| n.error.clone()) {
         body.push(
-            InfoBar::new(t("Connection problem"))
+            InfoBar::new(t("home.connection_problem"))
                 .message(err)
                 .error()
                 .is_closable(false)
@@ -637,13 +630,13 @@ pub fn network_page(ctx: &PageCtx) -> Element {
         let id = p.id.clone();
         let cfg = p.to_network_config();
         if live {
-            button(t("Disconnect"))
+            button(t("common.disconnect"))
                 .on_click(move || e.stop(id.clone()))
                 .min_width(140.0)
                 .grid_column(2)
                 .into()
         } else {
-            button(t("Connect"))
+            button(t("common.connect"))
                 .accent()
                 .on_click(move || e.start(id.clone(), cfg.clone()))
                 .min_width(140.0)
@@ -675,11 +668,11 @@ pub fn network_page(ctx: &PageCtx) -> Element {
             .horizontal_alignment(HorizontalAlignment::Stretch);
 
     let items = vec![
-        NavViewItem::new(t("General")).tag("general"),
-        NavViewItem::new(t("Security")).tag("security"),
-        NavViewItem::new(t("Routing")).tag("routing"),
-        NavViewItem::new(t("Proxies")).tag("proxies"),
-        NavViewItem::new(t("Advanced")).tag("advanced"),
+        NavViewItem::new(t("network.tab_general")).tag("general"),
+        NavViewItem::new(t("network.tab_security")).tag("security"),
+        NavViewItem::new(t("network.tab_routing")).tag("routing"),
+        NavViewItem::new(t("network.tab_proxies")).tag("proxies"),
+        NavViewItem::new(t("network.tab_advanced")).tag("advanced"),
     ];
     let nav = NavigationView::new(items, panel_body)
         .pane_display_mode(NavViewPaneDisplayMode::Top)
@@ -693,7 +686,7 @@ pub fn network_page(ctx: &PageCtx) -> Element {
     // tab nav so the network identity and Connect button stay accessible.
     let mut chrome_items: Vec<Element> = vec![
         vstack((
-            text_block(t("Network")).font_size(28.0).bold(),
+            text_block(t("network.title")).font_size(28.0).bold(),
             text_block(p.name.clone()).font_size(13.0).opacity(0.6),
         ))
         .spacing(2.0)
@@ -737,11 +730,11 @@ fn sanitize(name: &str) -> String {
 
 fn general_panel(ctx: &PageCtx, p: &Profile) -> Element {
     let profile_card = card(
-        "This profile",
+        "network.general.profile_card",
         vstack((
             text_box(p.name.clone())
-                .header(t("Profile name (shown in Polaris only)"))
-                .placeholder(t("My network"))
+                .header(t("network.general.profile_name"))
+                .placeholder(t("network.general.profile_name_placeholder"))
                 .on_changed(on_edit!(ctx, |p, v: String| p.name = v)),
             hstack((duplicate_button(ctx), export_button(p))).spacing(10.0),
         ))
@@ -750,16 +743,16 @@ fn general_panel(ctx: &PageCtx, p: &Profile) -> Element {
     );
 
     let identity = card(
-        "Identity",
+        "network.general.identity",
         vstack((
             text_box(p.network_name.clone())
-                .header(t("Network name (shared with peers)"))
-                .placeholder(t("e.g. home-lab"))
+                .header(t("network.general.network_name"))
+                .placeholder(t("network.general.network_name_placeholder"))
                 .on_changed(on_edit!(ctx, |p, v: String| p.network_name = v)),
             PasswordBox::new()
                 .value(p.network_secret.clone())
-                .header(t("Network secret (shared password)"))
-                .placeholder(t("everyone on the network uses this"))
+                .header(t("network.general.network_secret"))
+                .placeholder(t("network.general.network_secret_placeholder"))
                 .on_changed(on_edit!(ctx, |p, v: String| p.network_secret = v)),
         ))
         .spacing(14.0)
@@ -767,15 +760,15 @@ fn general_panel(ctx: &PageCtx, p: &Profile) -> Element {
     );
 
     let device = card(
-        "This device",
+        "network.general.device",
         vstack((
             text_box(p.hostname.clone())
-                .header(t("Display name (optional)"))
-                .placeholder(t("defaults to the system hostname"))
+                .header(t("network.general.display_name"))
+                .placeholder(t("network.general.display_name_placeholder"))
                 .on_changed(on_edit!(ctx, |p, v: String| p.hostname = v)),
             text_box(p.dev_name.clone())
-                .header(t("TUN device name (optional)"))
-                .placeholder(t("leave blank for the system default"))
+                .header(t("network.general.tun_name"))
+                .placeholder(t("network.general.tun_name_placeholder"))
                 .on_changed(on_edit!(ctx, |p, v: String| p.dev_name = v)),
         ))
         .spacing(14.0)
@@ -788,7 +781,7 @@ fn general_panel(ctx: &PageCtx, p: &Profile) -> Element {
         .collect();
     let mut conn: Vec<Element> = vec![
         ComboBox::new(method_labels)
-            .header(t("How to join"))
+            .header(t("network.general.how_to_join"))
             .selected_index(p.join_method.index())
             .on_selection_changed(
                 on_edit!(ctx, |p, v: i32| p.join_method = JoinMethod::from_index(v))
@@ -798,14 +791,14 @@ fn general_panel(ctx: &PageCtx, p: &Profile) -> Element {
     match p.join_method {
         JoinMethod::PublicServer => conn.push(
             text_box(p.public_server.clone())
-                .header(t("Server address"))
+                .header(t("network.general.server_address"))
                 .placeholder("tcp://public.easytier.cn:11010")
                 .on_changed(on_edit!(ctx, |p, v: String| p.public_server = v))
                 .into(),
         ),
         JoinMethod::Manual => conn.push(
             text_box(p.peers.join("\n"))
-                .header(t("Peer addresses (one per line)"))
+                .header(t("network.general.peer_addresses"))
                 .placeholder("tcp://192.0.2.10:11010")
                 .multiline()
                 .height(110.0)
@@ -813,21 +806,18 @@ fn general_panel(ctx: &PageCtx, p: &Profile) -> Element {
                 .into(),
         ),
         JoinMethod::Standalone => conn.push(
-            text_block(t(
-                "Standalone — other devices connect to this node's listeners \
-                 (set on the Advanced tab).",
-            ))
+            text_block(t("network.general.standalone_hint"))
             .font_size(12.0)
             .opacity(0.7)
             .wrap()
             .into(),
         ),
     }
-    let connection = card("Connection", vstack(conn).spacing(14.0).into());
+    let connection = card("network.general.connection", vstack(conn).spacing(14.0).into());
 
     let mut addr: Vec<Element> = vec![switch_row(
-        "Automatic IP (DHCP)",
-        "Get a virtual IP from the network automatically. Turn off to assign a fixed address.",
+        "network.general.dhcp",
+        "network.general.dhcp_help",
         p.dhcp,
         on_edit!(ctx, |p, v: bool| p.dhcp = v),
     )];
@@ -835,12 +825,12 @@ fn general_panel(ctx: &PageCtx, p: &Profile) -> Element {
         addr.push(
             grid((
                 text_box(p.virtual_ipv4.clone())
-                    .header(t("Virtual IPv4"))
+                    .header(t("network.general.virtual_ipv4"))
                     .placeholder("10.126.126.1")
                     .on_changed(on_edit!(ctx, |p, v: String| p.virtual_ipv4 = v))
                     .grid_column(0),
                 NumberBox::new(p.network_length as f64)
-                    .header(t("Prefix length"))
+                    .header(t("network.general.prefix_length"))
                     .range(1.0, 32.0)
                     .on_value_changed(on_edit!(ctx, |p, v: f64| {
                         p.network_length = v.clamp(1.0, 32.0) as u8
@@ -852,7 +842,7 @@ fn general_panel(ctx: &PageCtx, p: &Profile) -> Element {
             .into(),
         );
     }
-    let addressing = card("Addressing", vstack(addr).spacing(14.0).into());
+    let addressing = card("network.general.addressing", vstack(addr).spacing(14.0).into());
 
     vstack((profile_card, identity, device, connection, addressing))
         .spacing(18.0)
@@ -864,7 +854,7 @@ fn general_panel(ctx: &PageCtx, p: &Profile) -> Element {
 fn add_network_button(ctx: &PageCtx) -> Button {
     let set = ctx.set_store.clone();
     let store = ctx.store.clone();
-    button(t("Add network"))
+    button(t("common.add_network"))
         .accent()
         .icon(SymbolGlyph::Add)
         .on_click(move || {
@@ -883,11 +873,11 @@ fn add_network_button(ctx: &PageCtx) -> Button {
 fn import_button(ctx: &PageCtx) -> Button {
     let set = ctx.set_store.clone();
     let store = ctx.store.clone();
-    button(t("Import…"))
+    button(t("common.import"))
         .icon(SymbolGlyph::Download)
         .on_click(move || {
-            let f_cfg = t("EasyTier configs (*.toml, *.json)");
-            let f_all = t("All files");
+            let f_cfg = t("dialog.et_configs");
+            let f_all = t("dialog.all_files");
             if let Some(path) = crate::dialog::open_file(&[
                 (f_cfg.as_str(), "*.toml;*.json"),
                 (f_all.as_str(), "*.*"),
@@ -908,7 +898,7 @@ fn import_button(ctx: &PageCtx) -> Button {
 fn paste_button(ctx: &PageCtx) -> Button {
     let set = ctx.set_store.clone();
     let store = ctx.store.clone();
-    button(t("Paste config"))
+    button(t("common.paste_config"))
         .icon(SymbolGlyph::Paste)
         .on_click(move || {
             let Some(text) = crate::dialog::read_clipboard_text() else {
@@ -930,7 +920,7 @@ fn paste_button(ctx: &PageCtx) -> Button {
 fn duplicate_button(ctx: &PageCtx) -> Button {
     let set = ctx.set_store.clone();
     let store = ctx.store.clone();
-    button(t("Duplicate"))
+    button(t("common.duplicate"))
         .icon(SymbolGlyph::Copy)
         .on_click(move || {
             let mut s = store.clone();
@@ -946,12 +936,12 @@ fn duplicate_button(ctx: &PageCtx) -> Button {
 
 fn export_button(p: &Profile) -> Button {
     let p = p.clone();
-    button(t("Export…"))
+    button(t("common.export"))
         .icon(SymbolGlyph::Upload)
         .on_click(move || {
             let default = format!("{}.toml", sanitize(&p.name));
-            let f_toml = t("EasyTier config (*.toml)");
-            let f_json = t("NetworkConfig JSON (*.json)");
+            let f_toml = t("dialog.et_config");
+            let f_json = t("dialog.network_config_json");
             if let Some(path) = crate::dialog::save_file(
                 &default,
                 &[
@@ -982,7 +972,7 @@ fn delete_button(ctx: &PageCtx, idx: usize, prof_id: String) -> Button {
     let set = ctx.set_store.clone();
     let store = ctx.store.clone();
     let engine = ctx.engine.clone();
-    button(t("Delete"))
+    button(t("common.delete"))
         .subtle()
         .icon(SymbolGlyph::Delete)
         .enabled(can_delete)
@@ -1002,38 +992,35 @@ fn delete_button(ctx: &PageCtx, idx: usize, prof_id: String) -> Button {
 
 fn security_panel(ctx: &PageCtx, p: &Profile) -> Element {
     let crypto = card(
-        "Encryption",
+        "network.security.encryption",
         switch_row(
-            "Encrypt traffic between peers",
-            "AES-GCM by default. Only turn this off on a trusted LAN — without it, anyone who \
-             captures a packet can read it.",
+            "network.security.encrypt",
+            "network.security.encrypt_help",
             p.enable_encryption,
             on_edit!(ctx, |p, v: bool| p.enable_encryption = v),
         ),
     );
 
     let access = card(
-        "Access control",
+        "network.security.access_control",
         vstack((
             switch_row(
-                "Private mode",
-                "Reject peers whose network name does not match exactly. Without this, anyone \
-                 who guesses the secret can join even with a different network name.",
+                "network.security.private_mode",
+                "network.security.private_mode_help",
                 p.enable_private_mode,
                 on_edit!(ctx, |p, v: bool| p.enable_private_mode = v),
             ),
             divider(),
             switch_row(
-                "Only relay traffic for trusted networks",
-                "When acting as a relay, refuse to forward packets for networks not in the list \
-                 below.",
+                "network.security.relay_whitelist",
+                "network.security.relay_whitelist_help",
                 p.enable_relay_network_whitelist,
                 on_edit!(ctx, |p, v: bool| p.enable_relay_network_whitelist = v),
             ),
             // Whitelist editor is always present (greyed by EasyTier semantics when toggle is
             // off, but the field stays so the user can keep typing).
             text_box(p.relay_network_whitelist.join("\n"))
-                .header(t("Allowed network names (one per line)"))
+                .header(t("network.security.allowed_networks"))
                 .placeholder("home-lab\nstaging")
                 .multiline()
                 .height(80.0)
@@ -1047,11 +1034,10 @@ fn security_panel(ctx: &PageCtx, p: &Profile) -> Element {
     );
 
     let dns = card(
-        "DNS",
+        "network.security.dns",
         switch_row(
-            "Magic DNS",
-            "Resolve peer hostnames (e.g. `laptop.local`) inside this network without any DNS \
-             server.",
+            "network.security.magic_dns",
+            "network.security.magic_dns_help",
             p.enable_magic_dns,
             on_edit!(ctx, |p, v: bool| p.enable_magic_dns = v),
         ),
@@ -1064,28 +1050,24 @@ fn security_panel(ctx: &PageCtx, p: &Profile) -> Element {
 
 fn routing_panel(ctx: &PageCtx, p: &Profile) -> Element {
     let preference = card(
-        "Path selection",
+        "network.routing.path_selection",
         switch_row(
-            "Prefer the lowest-latency path",
-            "When more than one route exists, pick the one with the shortest RTT instead of the \
-             fewest hops.",
+            "network.routing.latency_first",
+            "network.routing.latency_first_help",
             p.latency_first,
             on_edit!(ctx, |p, v: bool| p.latency_first = v),
         ),
     );
 
     let subnet_proxy = card(
-        "Subnet proxy",
+        "network.routing.subnet_proxy",
         vstack((
-            text_block(t(
-                "Re-export local subnets to peers so they can reach hosts on your LAN as if \
-                 those hosts were on the overlay network.",
-            ))
-            .font_size(12.0)
-            .opacity(0.7)
-            .wrap(),
+            text_block(t("network.routing.subnet_proxy_text"))
+                .font_size(12.0)
+                .opacity(0.7)
+                .wrap(),
             text_box(p.proxy_cidrs.join("\n"))
-                .header(t("Shared subnets (CIDR, one per line)"))
+                .header(t("network.routing.shared_subnets"))
                 .placeholder("192.168.1.0/24")
                 .multiline()
                 .height(80.0)
@@ -1096,17 +1078,16 @@ fn routing_panel(ctx: &PageCtx, p: &Profile) -> Element {
     );
 
     let manual_routes = card(
-        "Manual routes",
+        "network.routing.manual_routes",
         vstack((
             switch_row(
-                "Announce custom routes",
-                "Advertise additional CIDRs to peers; they will route traffic to those ranges \
-                 through this node.",
+                "network.routing.announce_routes",
+                "network.routing.announce_routes_help",
                 p.enable_manual_routes,
                 on_edit!(ctx, |p, v: bool| p.enable_manual_routes = v),
             ),
             text_box(p.routes.join("\n"))
-                .header(t("Routes (one CIDR per line)"))
+                .header(t("network.routing.routes"))
                 .placeholder("192.168.0.0/16")
                 .multiline()
                 .height(80.0)
@@ -1118,19 +1099,16 @@ fn routing_panel(ctx: &PageCtx, p: &Profile) -> Element {
     );
 
     let exit = card(
-        "Exit nodes",
+        "network.routing.exit_nodes",
         vstack((
             switch_row(
-                "Act as an exit node for this network",
-                "Forward arbitrary internet traffic from other peers through this device.",
+                "network.routing.act_as_exit",
+                "network.routing.act_as_exit_help",
                 p.enable_exit_node,
                 on_edit!(ctx, |p, v: bool| p.enable_exit_node = v),
             ),
             divider(),
-            text_block(t(
-                "Send this device's internet traffic through one of these peers (use their \
-                 virtual IPs):",
-            ))
+            text_block(t("network.routing.use_exit_text"))
             .font_size(12.0)
             .opacity(0.7)
             .wrap(),
@@ -1154,15 +1132,14 @@ fn routing_panel(ctx: &PageCtx, p: &Profile) -> Element {
 fn proxies_panel(ctx: &PageCtx, p: &Profile) -> Element {
     let socks = {
         let mut body: Vec<Element> = vec![switch_row(
-            "Run a SOCKS5 proxy on this device",
-            "Other apps on this machine can route traffic through the EasyTier network by \
-             pointing at 127.0.0.1:<port>.",
+            "network.proxies.socks5_toggle",
+            "network.proxies.socks5_help",
             p.enable_socks5,
             on_edit!(ctx, |p, v: bool| p.enable_socks5 = v),
         )];
         body.push(
             NumberBox::new(p.socks5_port as f64)
-                .header(t("Listen port"))
+                .header(t("network.proxies.listen_port"))
                 .range(1.0, 65535.0)
                 .enabled(p.enable_socks5)
                 .on_value_changed(on_edit!(ctx, |p, v: f64| {
@@ -1170,20 +1147,20 @@ fn proxies_panel(ctx: &PageCtx, p: &Profile) -> Element {
                 }))
                 .into(),
         );
-        card("SOCKS5", vstack(body).spacing(14.0).into())
+        card("network.proxies.socks5", vstack(body).spacing(14.0).into())
     };
 
     let portal = {
         let mut body: Vec<Element> = vec![
             switch_row(
-                "Expose a built-in WireGuard server",
-                "Lets a WireGuard client outside this network dial into the mesh.",
+                "network.proxies.portal_toggle",
+                "network.proxies.portal_help",
                 p.enable_vpn_portal,
                 on_edit!(ctx, |p, v: bool| p.enable_vpn_portal = v),
             ),
             grid((
                 text_box(p.vpn_portal_client_network_addr.clone())
-                    .header(t("Client subnet"))
+                    .header(t("network.proxies.client_subnet"))
                     .placeholder("10.14.14.0")
                     .enabled(p.enable_vpn_portal)
                     .on_changed(on_edit!(ctx, |p, v: String| {
@@ -1191,7 +1168,7 @@ fn proxies_panel(ctx: &PageCtx, p: &Profile) -> Element {
                     }))
                     .grid_column(0),
                 NumberBox::new(p.vpn_portal_client_network_len as f64)
-                    .header(t("Prefix"))
+                    .header(t("network.proxies.prefix"))
                     .range(1.0, 32.0)
                     .enabled(p.enable_vpn_portal)
                     .on_value_changed(on_edit!(ctx, |p, v: f64| {
@@ -1199,7 +1176,7 @@ fn proxies_panel(ctx: &PageCtx, p: &Profile) -> Element {
                     }))
                     .grid_column(1),
                 NumberBox::new(p.vpn_portal_listen_port as f64)
-                    .header(t("Listen port (UDP)"))
+                    .header(t("network.proxies.listen_port_udp"))
                     .range(1.0, 65535.0)
                     .enabled(p.enable_vpn_portal)
                     .on_value_changed(on_edit!(ctx, |p, v: f64| {
@@ -1222,17 +1199,14 @@ fn proxies_panel(ctx: &PageCtx, p: &Profile) -> Element {
                 body.push(vpn_portal_viewer(cfg));
             } else {
                 body.push(
-                    text_block(t(
-                        "Connect this network to make Polaris publish a WireGuard client \
-                             config here.",
-                    ))
-                    .font_size(12.0)
-                    .opacity(0.6)
-                    .into(),
+                    text_block(t("network.proxies.portal_connect_hint"))
+                        .font_size(12.0)
+                        .opacity(0.6)
+                        .into(),
                 );
             }
         }
-        card("VPN portal", vstack(body).spacing(14.0).into())
+        card("network.proxies.portal", vstack(body).spacing(14.0).into())
     };
 
     let forwards = port_forwards_card(ctx, p);
@@ -1245,7 +1219,7 @@ fn vpn_portal_viewer(cfg: String) -> Element {
     let url = "https://www.wireguardconfig.com/qrcode";
     border(
         vstack((
-            text_block(t("WireGuard client config (Ctrl+A then Ctrl+C to copy)"))
+            text_block(t("network.proxies.wg_config_title"))
                 .font_size(12.0)
                 .semibold(),
             text_box(cfg)
@@ -1254,11 +1228,11 @@ fn vpn_portal_viewer(cfg: String) -> Element {
                 .font_family("Consolas")
                 .font_size(12.0),
             hstack((
-                text_block(t("Paste into any WireGuard client, or"))
+                text_block(t("network.proxies.wg_paste_hint"))
                     .font_size(11.0)
                     .opacity(0.6)
                     .vertical_alignment(VerticalAlignment::Center),
-                link("make a QR code", url),
+                link("network.proxies.wg_qr_link", url),
             ))
             .spacing(2.0)
             .vertical_alignment(VerticalAlignment::Center),
@@ -1273,12 +1247,12 @@ fn vpn_portal_viewer(cfg: String) -> Element {
 
 fn port_forwards_card(ctx: &PageCtx, p: &Profile) -> Element {
     let header = grid((
-        text_block(t("Forward TCP/UDP ports from this device into the mesh."))
+        text_block(t("network.proxies.forwards_text"))
             .font_size(12.0)
             .opacity(0.7)
             .wrap()
             .grid_column(0),
-        button(t("Add forward"))
+        button(t("network.proxies.add_forward"))
             .accent()
             .icon(SymbolGlyph::Add)
             .on_click({
@@ -1301,7 +1275,7 @@ fn port_forwards_card(ctx: &PageCtx, p: &Profile) -> Element {
 
     if p.port_forwards.is_empty() {
         rows.push(
-            text_block(t("No forwards configured."))
+            text_block(t("network.proxies.no_forwards"))
                 .font_size(12.0)
                 .opacity(0.55)
                 .into(),
@@ -1313,16 +1287,16 @@ fn port_forwards_card(ctx: &PageCtx, p: &Profile) -> Element {
         }
     }
 
-    card("Port forwards", vstack(rows).spacing(10.0).into())
+    card("network.proxies.port_forwards", vstack(rows).spacing(10.0).into())
 }
 
 fn port_forward_header() -> Element {
     hstack((
-        cell(t("Proto"), 70.0, true, false),
-        cell(t("Bind IP"), 140.0, true, false),
-        cell(t("Bind port"), 95.0, true, false),
-        cell(t("Destination IP"), 160.0, true, false),
-        cell(t("Dest port"), 95.0, true, false),
+        cell(t("network.proxies.col_proto"), 70.0, true, false),
+        cell(t("network.proxies.col_bind_ip"), 140.0, true, false),
+        cell(t("network.proxies.col_bind_port"), 95.0, true, false),
+        cell(t("network.proxies.col_dest_ip"), 160.0, true, false),
+        cell(t("network.proxies.col_dest_port"), 95.0, true, false),
         cell("".into(), 44.0, true, false),
     ))
     .spacing(8.0)
@@ -1441,23 +1415,20 @@ fn port_forward_row(ctx: &PageCtx, p: &Profile, i: usize) -> Element {
 
 fn advanced_panel(ctx: &PageCtx, p: &Profile) -> Element {
     let listeners_card = card(
-        "Listeners",
+        "network.advanced.listeners",
         vstack((
-            text_block(t(
-                "URLs this node binds for inbound connections. Leave the first list empty for \
-                 EasyTier's defaults (tcp/udp/wg on standard ports).",
-            ))
-            .font_size(12.0)
-            .opacity(0.7)
-            .wrap(),
+            text_block(t("network.advanced.listeners_text"))
+                .font_size(12.0)
+                .opacity(0.7)
+                .wrap(),
             text_box(p.listeners.join("\n"))
-                .header(t("Listener URLs (one per line)"))
+                .header(t("network.advanced.listener_urls"))
                 .placeholder("tcp://0.0.0.0:11010\nudp://0.0.0.0:11010\nwg://0.0.0.0:11011")
                 .multiline()
                 .height(96.0)
                 .on_changed(on_edit!(ctx, |p, v: String| p.listeners = split_lines(&v))),
             text_box(p.mapped_listeners.join("\n"))
-                .header(t("Mapped listeners (public URLs other peers should dial)"))
+                .header(t("network.advanced.mapped_listeners"))
                 .placeholder("tcp://my.public.dns:11010")
                 .multiline()
                 .height(72.0)
@@ -1470,15 +1441,15 @@ fn advanced_panel(ctx: &PageCtx, p: &Profile) -> Element {
     );
 
     let limits = card(
-        "Limits",
+        "network.advanced.limits",
         grid((
             NumberBox::new(p.mtu as f64)
-                .header(t("MTU (0 = default)"))
+                .header(t("network.advanced.mtu"))
                 .range(0.0, 1500.0)
                 .on_value_changed(on_edit!(ctx, |p, v: f64| p.mtu = v.clamp(0.0, 1500.0) as u32))
                 .grid_column(0),
             NumberBox::new(p.instance_recv_bps_limit as f64)
-                .header(t("Receive bandwidth limit (bps; 0 = unlimited)"))
+                .header(t("network.advanced.recv_limit"))
                 .range(0.0, 1_000_000_000_000.0)
                 .on_value_changed(on_edit!(ctx, |p, v: f64| {
                     p.instance_recv_bps_limit = v.max(0.0) as u64
@@ -1491,53 +1462,53 @@ fn advanced_panel(ctx: &PageCtx, p: &Profile) -> Element {
     );
 
     let transport = card(
-        "Transport",
+        "network.advanced.transport",
         flag_grid(vec![
             flag(
-                "KCP proxy",
-                "Wrap proxied TCP in KCP (TCP-over-UDP). Smoother over lossy links.",
+                "network.advanced.kcp_proxy",
+                "network.advanced.kcp_proxy_help",
                 p.enable_kcp_proxy,
                 on_edit!(ctx, |p, v: bool| p.enable_kcp_proxy = v),
             ),
             flag(
-                "Refuse inbound KCP",
-                "Don't accept incoming KCP proxies from other peers.",
+                "network.advanced.refuse_kcp",
+                "network.advanced.refuse_kcp_help",
                 p.disable_kcp_input,
                 on_edit!(ctx, |p, v: bool| p.disable_kcp_input = v),
             ),
             flag(
-                "QUIC proxy",
-                "Wrap proxied TCP in QUIC — useful behind some firewalls.",
+                "network.advanced.quic_proxy",
+                "network.advanced.quic_proxy_help",
                 p.enable_quic_proxy,
                 on_edit!(ctx, |p, v: bool| p.enable_quic_proxy = v),
             ),
             flag(
-                "Refuse inbound QUIC",
-                "Don't accept incoming QUIC proxy sessions.",
+                "network.advanced.refuse_quic",
+                "network.advanced.refuse_quic_help",
                 p.disable_quic_input,
                 on_edit!(ctx, |p, v: bool| p.disable_quic_input = v),
             ),
             flag(
-                "smoltcp stack",
-                "Bypass the OS TCP stack. Required on devices without TUN.",
+                "network.advanced.smoltcp",
+                "network.advanced.smoltcp_help",
                 p.use_smoltcp,
                 on_edit!(ctx, |p, v: bool| p.use_smoltcp = v),
             ),
             flag(
-                "Disable IPv6",
-                "Use IPv4 only. Try this if v6 paths are flaky on your network.",
+                "network.advanced.disable_ipv6",
+                "network.advanced.disable_ipv6_help",
                 p.disable_ipv6,
                 on_edit!(ctx, |p, v: bool| p.disable_ipv6 = v),
             ),
             flag(
-                "Auto public IPv6",
-                "Ask STUN for this device's public v6 address.",
+                "network.advanced.auto_ipv6",
+                "network.advanced.auto_ipv6_help",
                 p.ipv6_public_addr_auto,
                 on_edit!(ctx, |p, v: bool| p.ipv6_public_addr_auto = v),
             ),
             flag(
-                "Relay UDP broadcasts",
-                "Reflect UDP broadcast/multicast (e.g. mDNS) across the mesh.",
+                "network.advanced.udp_broadcast",
+                "network.advanced.udp_broadcast_help",
                 p.enable_udp_broadcast_relay,
                 on_edit!(ctx, |p, v: bool| p.enable_udp_broadcast_relay = v),
             ),
@@ -1545,53 +1516,53 @@ fn advanced_panel(ctx: &PageCtx, p: &Profile) -> Element {
     );
 
     let p2p = card(
-        "Peer-to-peer & NAT",
+        "network.advanced.p2p_nat",
         flag_grid(vec![
             flag(
-                "Disable direct P2P",
-                "Always relay through a server. Slower but predictable.",
+                "network.advanced.disable_p2p",
+                "network.advanced.disable_p2p_help",
                 p.disable_p2p,
                 on_edit!(ctx, |p, v: bool| p.disable_p2p = v),
             ),
             flag(
-                "P2P only",
-                "Refuse to relay traffic between other peers.",
+                "network.advanced.p2p_only",
+                "network.advanced.p2p_only_help",
                 p.p2p_only,
                 on_edit!(ctx, |p, v: bool| p.p2p_only = v),
             ),
             flag(
-                "Lazy P2P",
-                "Only attempt P2P once real traffic starts.",
+                "network.advanced.lazy_p2p",
+                "network.advanced.lazy_p2p_help",
                 p.lazy_p2p,
                 on_edit!(ctx, |p, v: bool| p.lazy_p2p = v),
             ),
             flag(
-                "Require P2P",
-                "Refuse to start if P2P could not be established.",
+                "network.advanced.require_p2p",
+                "network.advanced.require_p2p_help",
                 p.need_p2p,
                 on_edit!(ctx, |p, v: bool| p.need_p2p = v),
             ),
             flag(
-                "Skip TCP hole-punching",
-                "Don't try TCP NAT traversal.",
+                "network.advanced.skip_tcp_punch",
+                "network.advanced.skip_tcp_punch_help",
                 p.disable_tcp_hole_punching,
                 on_edit!(ctx, |p, v: bool| p.disable_tcp_hole_punching = v),
             ),
             flag(
-                "Skip UDP hole-punching",
-                "Don't try UDP NAT traversal.",
+                "network.advanced.skip_udp_punch",
+                "network.advanced.skip_udp_punch_help",
                 p.disable_udp_hole_punching,
                 on_edit!(ctx, |p, v: bool| p.disable_udp_hole_punching = v),
             ),
             flag(
-                "Skip symmetric-NAT punch",
-                "Skip the specialized symmetric-NAT punching algorithm.",
+                "network.advanced.skip_sym_punch",
+                "network.advanced.skip_sym_punch_help",
                 p.disable_sym_hole_punching,
                 on_edit!(ctx, |p, v: bool| p.disable_sym_hole_punching = v),
             ),
             flag(
-                "Disable UPnP",
-                "Don't auto-open ports on your router.",
+                "network.advanced.disable_upnp",
+                "network.advanced.disable_upnp_help",
                 p.disable_upnp,
                 on_edit!(ctx, |p, v: bool| p.disable_upnp = v),
             ),
@@ -1599,35 +1570,35 @@ fn advanced_panel(ctx: &PageCtx, p: &Profile) -> Element {
     );
 
     let instance = card(
-        "Instance",
+        "network.advanced.instance",
         flag_grid(vec![
             flag(
-                "Relay peer RPCs",
-                "Forward control-plane messages between peers (needed on relay servers).",
+                "network.advanced.relay_rpc",
+                "network.advanced.relay_rpc_help",
                 p.relay_all_peer_rpc,
                 on_edit!(ctx, |p, v: bool| p.relay_all_peer_rpc = v),
             ),
             flag(
-                "Multi-threaded runtime",
-                "Use the full Tokio pool. Disable on single-core devices.",
+                "network.advanced.multi_thread",
+                "network.advanced.multi_thread_help",
                 p.multi_thread,
                 on_edit!(ctx, |p, v: bool| p.multi_thread = v),
             ),
             flag(
-                "Forward proxy via OS",
-                "Let the kernel route proxied subnets instead of user-space.",
+                "network.advanced.forward_by_system",
+                "network.advanced.forward_by_system_help",
                 p.proxy_forward_by_system,
                 on_edit!(ctx, |p, v: bool| p.proxy_forward_by_system = v),
             ),
             flag(
-                "Bind to a single NIC",
-                "Pin outbound traffic to one interface. Required on iOS-like systems.",
+                "network.advanced.bind_device",
+                "network.advanced.bind_device_help",
                 p.bind_device,
                 on_edit!(ctx, |p, v: bool| p.bind_device = v),
             ),
             flag(
-                "No TUN device",
-                "Run without a virtual NIC — proxies only (SOCKS5 / port forwards).",
+                "network.advanced.no_tun",
+                "network.advanced.no_tun_help",
                 p.no_tun,
                 on_edit!(ctx, |p, v: bool| p.no_tun = v),
             ),
@@ -1651,12 +1622,12 @@ pub fn peers_page(ctx: &PageCtx) -> Element {
 
     if live.is_empty() {
         return page(
-            "Peers",
-            "Devices reachable on your networks.",
+            "nav.peers",
+            "peers.subtitle",
             vec![card(
                 "",
-                InfoBar::new(t("Nothing here yet"))
-                    .message(t("Connect a network to discover its peers."))
+                InfoBar::new(t("peers.empty_title"))
+                    .message(t("peers.empty_message"))
                     .informational()
                     .is_closable(false)
                     .into(),
@@ -1668,14 +1639,14 @@ pub fn peers_page(ctx: &PageCtx) -> Element {
     for prof in live {
         let net = ctx.snap.net(&prof.id).unwrap();
         sections.push(card(
-            &format!("{}  ({})", prof.name, tn("{n} peers", net.peers.len())),
+            &format!("{}  ({})", prof.name, tn("peers.count", net.peers.len())),
             vstack((my_node_chips(net), peer_table(&net.peers)))
                 .spacing(14.0)
                 .into(),
         ));
     }
 
-    page("Peers", "Devices reachable on your networks.", sections)
+    page("nav.peers", "peers.subtitle", sections)
 }
 
 fn my_node_chips(net: &NetSnapshot) -> Element {
@@ -1713,15 +1684,15 @@ fn my_node_chips(net: &NetSnapshot) -> Element {
         );
     };
 
-    push("ID", &net.peer_id.to_string());
-    push("Virtual IP", &net.virtual_ip);
-    push("TUN", &net.dev_name);
-    push("NAT", &net.nat_type);
-    push("Public v4", &net.public_ipv4);
-    push("Public v6", &net.public_ipv6);
-    push("Version", &net.version);
+    push("peers.chip_id", &net.peer_id.to_string());
+    push("peers.chip_virtual_ip", &net.virtual_ip);
+    push("peers.chip_tun", &net.dev_name);
+    push("peers.chip_nat", &net.nat_type);
+    push("peers.chip_public_v4", &net.public_ipv4);
+    push("peers.chip_public_v6", &net.public_ipv6);
+    push("peers.chip_version", &net.version);
     for (i, l) in net.listeners.iter().enumerate() {
-        push(&tn("Listener {n}", i + 1), l);
+        push(&tn("peers.chip_listener", i + 1), l);
     }
 
     let mut rows: Vec<Element> = Vec::new();
@@ -1741,16 +1712,16 @@ fn my_node_chips(net: &NetSnapshot) -> Element {
 
 fn peer_table(peers: &[PeerRow]) -> Element {
     const HEADERS: [&str; 10] = [
-        "Device",
-        "Virtual IP",
-        "Route",
-        "Latency",
-        "Tunnel",
-        "NAT",
-        "Down",
-        "Up",
-        "Loss",
-        "Version",
+        "peers.col_device",
+        "peers.col_virtual_ip",
+        "peers.col_route",
+        "peers.col_latency",
+        "peers.col_tunnel",
+        "peers.col_nat",
+        "peers.col_down",
+        "peers.col_up",
+        "peers.col_loss",
+        "peers.col_version",
     ];
     // Per-column (min, max) width clamps in px — columns size to their content
     // within these bounds; anything wider is clipped (the tooltip shows it all).
@@ -1818,7 +1789,16 @@ fn peer_table(peers: &[PeerRow]) -> Element {
             hstack(vec![
                 copy_cell(p.hostname.clone(), widths[0]),
                 copy_cell(or_dash(&p.ipv4), widths[1]),
-                cell(t(&p.cost), widths[2], false, p.cost != "Direct"),
+                cell(
+                    if p.cost == "Direct" {
+                        t("peers.cost_direct")
+                    } else {
+                        p.cost.clone()
+                    },
+                    widths[2],
+                    false,
+                    p.cost != "Direct",
+                ),
                 cell(
                     p.latency_ms
                         .map_or_else(|| "—".to_string(), |l| format!("{l:.0} ms")),
@@ -1864,11 +1844,11 @@ pub fn logs_page(ctx: &PageCtx) -> Element {
 
     if active.is_empty() {
         return page(
-            "Activity",
-            "Live events from each running network.",
+            "nav.activity",
+            "activity.subtitle",
             vec![card(
                 "",
-                text_block(t("No activity yet. Connect a network to see its events."))
+                text_block(t("activity.empty"))
                     .font_size(13.0)
                     .opacity(0.7)
                     .into(),
@@ -1891,18 +1871,14 @@ pub fn logs_page(ctx: &PageCtx) -> Element {
             })
             .collect();
         sections.push(card(
-            &format!("{}  ({})", prof.name, tn("{n} events", net.events.len())),
+            &format!("{}  ({})", prof.name, tn("activity.count", net.events.len())),
             scroll_view(vstack(lines).spacing(4.0))
                 .max_height(320.0)
                 .into(),
         ));
     }
 
-    page(
-        "Activity",
-        "Live events from each running network.",
-        sections,
-    )
+    page("nav.activity", "activity.subtitle", sections)
 }
 
 // ──────────────────────────────── Settings ────────────────────────────────
@@ -1917,16 +1893,16 @@ pub fn settings_page(ctx: &PageCtx) -> Element {
         .collect();
 
     let appearance = card(
-        "Appearance",
+        "settings.appearance",
         vstack((
             ComboBox::new(theme_labels)
-                .header(t("Theme"))
+                .header(t("settings.theme"))
                 .selected_index(s.theme.index())
                 .on_selection_changed(
                     on_setting!(ctx, |st, v: i32| st.theme = Theme::from_index(v))
                 ),
             ComboBox::new(material_labels)
-                .header(t("Window material"))
+                .header(t("settings.material"))
                 .selected_index(s.material.index())
                 .on_selection_changed(
                     on_setting!(ctx, |st, v: i32| st.material = Material::from_index(v))
@@ -1937,29 +1913,28 @@ pub fn settings_page(ctx: &PageCtx) -> Element {
     );
 
     let behavior = card(
-        "Behaviour",
+        "settings.behaviour",
         switch_row(
-            "Connect the selected network on launch",
-            "Polaris will start your last-edited network as soon as it opens.",
+            "settings.auto_connect",
+            "settings.auto_connect_help",
             s.auto_connect,
             on_setting!(ctx, |st, v: bool| st.auto_connect = v),
         ),
     );
 
     let tray = card(
-        "System tray",
+        "settings.tray",
         vstack((
             switch_row(
-                "Close button minimizes to tray",
-                "Closing the window keeps Polaris running in the notification area. Use the tray \
-                 icon's Quit to exit completely.",
+                "settings.close_to_tray",
+                "settings.close_to_tray_help",
                 s.close_to_tray,
                 on_setting!(ctx, |st, v: bool| st.close_to_tray = v),
             ),
             divider(),
             switch_row(
-                "Minimize button minimizes to tray",
-                "Hide Polaris to the tray instead of the taskbar when you minimize it.",
+                "settings.minimize_to_tray",
+                "settings.minimize_to_tray_help",
                 s.minimize_to_tray,
                 on_setting!(ctx, |st, v: bool| st.minimize_to_tray = v),
             ),
@@ -1970,9 +1945,9 @@ pub fn settings_page(ctx: &PageCtx) -> Element {
 
     let language_labels: Vec<String> = Language::ALL.iter().map(|l| l.label()).collect();
     let language = card(
-        "Language",
+        "settings.language",
         ComboBox::new(language_labels)
-            .header(t("Language"))
+            .header(t("settings.language"))
             .selected_index(s.language.index())
             .on_selection_changed(on_setting!(ctx, |st, v: i32| st.language =
                 Language::from_index(v)))
@@ -1983,19 +1958,15 @@ pub fn settings_page(ctx: &PageCtx) -> Element {
     cards.push(diagnostics_card(ctx));
     cards.push(admin_card(ctx));
 
-    page(
-        "Settings",
-        "Application-wide preferences. Network management lives on the Home page.",
-        cards,
-    )
+    page("nav.settings", "settings.subtitle", cards)
 }
 
 fn admin_card(ctx: &PageCtx) -> Element {
     let elevated = crate::elevate::is_elevated();
     let status = if elevated {
-        t("Running as administrator — VPN (TUN) is available.")
+        t("settings.admin_elevated")
     } else {
-        t("Not elevated — VPN mode is disabled; SOCKS5 and port-forward proxies still work.")
+        t("settings.admin_not_elevated")
     };
 
     // A packaged (MSIX) build elevates through its manifest (allowElevation +
@@ -2005,12 +1976,10 @@ fn admin_card(ctx: &PageCtx) -> Element {
         let detail = if elevated {
             status.clone()
         } else {
-            t("Not elevated — VPN mode is disabled; SOCKS5 and port-forward proxies still \
-               work. Launch Polaris as an administrator to enable the VPN (requires \
-               Windows 11).")
+            t("settings.admin_packaged_not_elevated")
         };
         return card(
-            "Administrator & VPN",
+            "settings.admin",
             text_block(detail)
                 .font_size(12.0)
                 .opacity(0.6)
@@ -2021,9 +1990,8 @@ fn admin_card(ctx: &PageCtx) -> Element {
 
     let mut body: Vec<Element> = vec![
         switch_row(
-            "Always launch as administrator",
-            "Request UAC elevation on startup so Polaris can create the VPN (TUN) adapter. \
-             Takes effect next launch.",
+            "settings.always_admin",
+            "settings.always_admin_help",
             ctx.store.settings.always_admin,
             on_setting!(ctx, |st, v: bool| st.always_admin = v),
         ),
@@ -2035,7 +2003,7 @@ fn admin_card(ctx: &PageCtx) -> Element {
     ];
     if !elevated {
         body.push(
-            button(t("Restart as administrator now"))
+            button(t("settings.restart_admin"))
                 .accent()
                 .on_click(|| {
                     if crate::elevate::relaunch_elevated() {
@@ -2047,54 +2015,49 @@ fn admin_card(ctx: &PageCtx) -> Element {
         );
     }
 
-    card("Administrator & VPN", vstack(body).spacing(14.0).into())
+    card("settings.admin", vstack(body).spacing(14.0).into())
 }
 
 // ───────────────────────────────── About ──────────────────────────────────
 
 pub fn about_page() -> Element {
     let about = card(
-        "Polaris",
+        "about.app_title",
         vstack((
-            text_block(t("A fast, friendly WinUI client for the EasyTier mesh VPN.")).font_size(14.0),
-            text_block(format!("{} {}", t("Version"), env!("CARGO_PKG_VERSION")))
+            text_block(t("about.desc")).font_size(14.0),
+            text_block(format!("{} {}", t("about.version"), env!("CARGO_PKG_VERSION")))
                 .font_size(12.0)
                 .opacity(0.7),
-            text_block(format!("{} {}", t("EasyTier engine"), easytier::VERSION))
+            text_block(format!("{} {}", t("about.engine"), easytier::VERSION))
                 .font_size(12.0)
                 .opacity(0.7),
-            text_block(t("Built with windows-reactor (WinUI 3) and the embedded EasyTier core."))
-                .font_size(12.0)
-                .opacity(0.7),
+            text_block(t("about.built_with")).font_size(12.0).opacity(0.7),
         ))
         .spacing(6.0)
         .into(),
     );
 
     let links = card(
-        "Learn more",
+        "about.learn_more",
         vstack((
-            link("Polaris on GitHub", "https://github.com/l5z12/polaris_et"),
-            link("EasyTier website", "https://easytier.cn"),
-            link("EasyTier on GitHub", "https://github.com/EasyTier/EasyTier"),
-            link(
-                "windows-reactor (windows-rs)",
-                "https://github.com/microsoft/windows-rs",
-            ),
+            link("about.link_polaris", "https://github.com/l5z12/polaris_et"),
+            link("about.link_website", "https://easytier.cn"),
+            link("about.link_easy_tier", "https://github.com/EasyTier/EasyTier"),
+            link("about.link_reactor", "https://github.com/microsoft/windows-rs"),
         ))
         .spacing(2.0)
         .into(),
     );
 
     let credits = card(
-        "Credits",
+        "about.credits",
         vstack((
-            text_block(t("App icon from Fluent UI System Icons — © Microsoft, MIT License."))
+            text_block(t("about.icon_attribution"))
                 .font_size(12.0)
                 .opacity(0.7)
                 .wrap(),
             link(
-                "github.com/microsoft/fluentui-system-icons",
+                "about.icon_link",
                 "https://github.com/microsoft/fluentui-system-icons",
             ),
         ))
@@ -2103,33 +2066,21 @@ pub fn about_page() -> Element {
     );
 
     let license = card(
-        "License",
+        "about.license",
         vstack((
-            text_block(t("© 2026 Polaris contributors"))
+            text_block(t("about.copyright")).font_size(12.0).opacity(0.7),
+            text_block(t("about.license_text"))
                 .font_size(12.0)
-                .opacity(0.7),
-            text_block(t(
-                "Polaris is free software under the GNU General Public License, version 3, \
-                 and comes with ABSOLUTELY NO WARRANTY.",
-            ))
-            .font_size(12.0)
-            .opacity(0.7)
-            .wrap(),
-            link("GNU GPL v3.0", "https://www.gnu.org/licenses/gpl-3.0.html"),
-            link(
-                "Polaris source code (GitHub)",
-                "https://github.com/l5z12/polaris_et",
-            ),
+                .opacity(0.7)
+                .wrap(),
+            link("about.link_gpl", "https://www.gnu.org/licenses/gpl-3.0.html"),
+            link("about.link_source", "https://github.com/l5z12/polaris_et"),
         ))
         .spacing(6.0)
         .into(),
     );
 
-    page(
-        "About",
-        "What powers Polaris.",
-        vec![about, links, credits, license],
-    )
+    page("nav.about", "about.subtitle", vec![about, links, credits, license])
 }
 
 // ───────────────────────────── Diagnostics ────────────────────────────────
@@ -2141,8 +2092,14 @@ fn retention_index(days: u32) -> i32 {
     RETENTION_DAYS.iter().position(|d| *d == days).unwrap_or(2) as i32
 }
 
+/// `yes`/`no` for the plain-text exported log header (never translated).
 fn yn(b: bool) -> &'static str {
     if b { "yes" } else { "no" }
+}
+
+/// i18n key for the translated yes/no shown on the Diagnostics page.
+fn yn_key(b: bool) -> &'static str {
+    if b { "diagnostics.yes" } else { "diagnostics.no" }
 }
 
 /// One-line environment summary, prepended to exported logs.
@@ -2162,9 +2119,9 @@ fn export_logs() {
         "polaris-logs-{}.txt",
         chrono::Local::now().format("%Y%m%d-%H%M%S")
     );
-    let f_text = t("Text");
-    let f_log = t("Log");
-    let f_all = t("All files");
+    let f_text = t("dialog.text");
+    let f_log = t("dialog.log");
+    let f_all = t("dialog.all_files");
     if let Some(path) = crate::dialog::save_file(
         &name,
         &[
@@ -2188,11 +2145,8 @@ fn diagnostics_card(ctx: &PageCtx) -> Element {
     let s = &ctx.store.settings;
 
     let mut body: Vec<Element> = vec![switch_row(
-        "Verbose engine logging",
-        "Capture verbose logs from Polaris and the EasyTier engine to a file and a Diagnostics \
-         page — for deep debugging (e.g. why peers stay on relay vs. going P2P). Separate from \
-         and off by default: per-network activity (peer connects, route changes) is always on \
-         the Activity page without this.",
+        "diagnostics.verbose",
+        "diagnostics.verbose_help",
         s.diagnostics_enabled,
         on_setting!(ctx, |st, v: bool| st.diagnostics_enabled = v),
     )];
@@ -2204,13 +2158,13 @@ fn diagnostics_card(ctx: &PageCtx) -> Element {
             .collect();
         let retention_labels: Vec<String> = RETENTION_DAYS
             .iter()
-            .map(|d| tn("{n} days", *d as usize))
+            .map(|d| tn("diagnostics.retention_days", *d as usize))
             .collect();
 
         body.push(divider());
         body.push(
             ComboBox::new(level_labels)
-                .header(t("Log level"))
+                .header(t("diagnostics.log_level"))
                 .selected_index(s.log_level.index())
                 .on_selection_changed(
                     on_setting!(ctx, |st, v: i32| st.log_level = LogLevel::from_index(v))
@@ -2219,7 +2173,7 @@ fn diagnostics_card(ctx: &PageCtx) -> Element {
         );
         body.push(
             ComboBox::new(retention_labels)
-                .header(t("Delete logs older than"))
+                .header(t("diagnostics.retention"))
                 .selected_index(retention_index(s.log_retention_days))
                 .on_selection_changed(on_setting!(ctx, |st, v: i32| {
                     let i = (v.max(0) as usize).min(RETENTION_DAYS.len() - 1);
@@ -2229,22 +2183,26 @@ fn diagnostics_card(ctx: &PageCtx) -> Element {
         );
         body.push(
             hstack((
-                button(t("Export logs…")).on_click(export_logs),
-                button(t("Open logs folder")).on_click(open_logs_folder),
+                button(t("diagnostics.export_logs")).on_click(export_logs),
+                button(t("diagnostics.open_folder")).on_click(open_logs_folder),
             ))
             .spacing(8.0)
             .into(),
         );
         body.push(
-            text_block(format!("{}: {}", t("Logs"), crate::logging::logs_dir().display()))
-                .font_size(11.0)
-                .opacity(0.55)
-                .wrap()
-                .into(),
+            text_block(format!(
+                "{}: {}",
+                t("diagnostics.logs_path"),
+                crate::logging::logs_dir().display()
+            ))
+            .font_size(11.0)
+            .opacity(0.55)
+            .wrap()
+            .into(),
         );
     }
 
-    card("Diagnostics", vstack(body).spacing(14.0).into())
+    card("diagnostics.card", vstack(body).spacing(14.0).into())
 }
 
 /// The Diagnostics page: environment summary + a live tail of the log buffer.
@@ -2258,7 +2216,7 @@ pub fn diagnostics_page(ctx: &PageCtx) -> Element {
         .count();
 
     let info = card(
-        "Environment",
+        "diagnostics.environment",
         vstack((
             text_block(format!(
                 "Polaris {}  ·  EasyTier {}",
@@ -2269,18 +2227,18 @@ pub fn diagnostics_page(ctx: &PageCtx) -> Element {
             .semibold(),
             text_block(format!(
                 "{}: {}   ·   {}: {}   ·   {}: {}",
-                t("Elevated"),
-                t(yn(crate::elevate::is_elevated())),
-                t("Packaged"),
-                t(yn(crate::elevate::is_packaged())),
-                t("Active networks"),
+                t("diagnostics.elevated"),
+                t(yn_key(crate::elevate::is_elevated())),
+                t("diagnostics.packaged"),
+                t(yn_key(crate::elevate::is_packaged())),
+                t("diagnostics.active_networks"),
                 active,
             ))
             .font_size(12.0)
             .opacity(0.7),
             text_block(format!(
                 "{}: {}   ·   {}",
-                t("Log level"),
+                t("diagnostics.log_level"),
                 ctx.store.settings.log_level.label(),
                 crate::logging::logs_dir().display(),
             ))
@@ -2294,11 +2252,8 @@ pub fn diagnostics_page(ctx: &PageCtx) -> Element {
 
     let lines = crate::logging::recent(400);
     let log_body: Element = if lines.is_empty() {
-        text_block(t(
-            "No log output yet. Lower the log level (Settings → Diagnostics) and use the app — \
-             engine events stream in here.",
-        ))
-        .font_size(12.0)
+        text_block(t("diagnostics.no_log"))
+            .font_size(12.0)
         .opacity(0.7)
         .wrap()
         .into()
@@ -2319,21 +2274,17 @@ pub fn diagnostics_page(ctx: &PageCtx) -> Element {
     };
 
     let toolbar: Element = hstack((
-        button(t("Export logs…")).on_click(export_logs),
-        button(t("Open logs folder")).on_click(open_logs_folder),
-        button(t("Clear")).on_click(crate::logging::clear),
+        button(t("diagnostics.export_logs")).on_click(export_logs),
+        button(t("diagnostics.open_folder")).on_click(open_logs_folder),
+        button(t("diagnostics.clear")).on_click(crate::logging::clear),
     ))
     .spacing(8.0)
     .into();
 
     let logs = card(
-        &format!("{}  ({})", t("Live log"), tn("{n} lines", lines.len())),
+        &format!("{}  ({})", t("diagnostics.live_log"), tn("diagnostics.lines", lines.len())),
         vstack(vec![toolbar, log_body]).spacing(12.0).into(),
     );
 
-    page(
-        "Diagnostics",
-        "Logs from Polaris and the embedded EasyTier engine.",
-        vec![info, logs],
-    )
+    page("nav.diagnostics", "diagnostics.subtitle", vec![info, logs])
 }

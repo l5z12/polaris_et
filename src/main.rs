@@ -159,22 +159,22 @@ fn root(cx: &mut RenderCx, engine: &Engine) -> Element {
         let sfx = if crate::i18n::is_zh() { "zh" } else { "en" };
         let tag = |t: &str| format!("{t}@{sfx}");
         let mut v = vec![
-            NavViewItem::new(i18n::t("Home"))
+            NavViewItem::new(i18n::t("nav.home"))
                 .tag(tag("home"))
                 .icon(SymbolGlyph::Home),
-            NavViewItem::new(i18n::t("Network"))
+            NavViewItem::new(i18n::t("nav.network"))
                 .tag(tag("network"))
                 .icon(SymbolGlyph::Edit),
-            NavViewItem::new(i18n::t("Peers"))
+            NavViewItem::new(i18n::t("nav.peers"))
                 .tag(tag("peers"))
                 .icon(SymbolGlyph::People),
-            NavViewItem::new(i18n::t("Activity"))
+            NavViewItem::new(i18n::t("nav.activity"))
                 .tag(tag("logs"))
                 .icon(SymbolGlyph::Sync),
-            NavViewItem::new(i18n::t("Settings"))
+            NavViewItem::new(i18n::t("nav.settings"))
                 .tag(tag("settings"))
                 .icon(SymbolGlyph::Setting),
-            NavViewItem::new(i18n::t("About"))
+            NavViewItem::new(i18n::t("nav.about"))
                 .tag(tag("about"))
                 .icon(SymbolGlyph::Help),
         ];
@@ -182,7 +182,7 @@ fn root(cx: &mut RenderCx, engine: &Engine) -> Element {
         if diag_enabled {
             v.insert(
                 5,
-                NavViewItem::new(i18n::t("Diagnostics"))
+                NavViewItem::new(i18n::t("nav.diagnostics"))
                     .tag(tag("diagnostics"))
                     .icon(SymbolGlyph::Find),
             );

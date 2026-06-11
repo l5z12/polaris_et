@@ -51,9 +51,9 @@ impl JoinMethod {
     ];
     pub fn label(self) -> &'static str {
         ts(match self {
-            JoinMethod::PublicServer => "Public / shared server",
-            JoinMethod::Manual => "Specific peers",
-            JoinMethod::Standalone => "Standalone (host)",
+            JoinMethod::PublicServer => "join_method.public",
+            JoinMethod::Manual => "join_method.manual",
+            JoinMethod::Standalone => "join_method.standalone",
         })
     }
     pub fn index(self) -> i32 {
@@ -638,9 +638,9 @@ impl Theme {
     pub const ALL: [Theme; 3] = [Theme::System, Theme::Light, Theme::Dark];
     pub fn label(self) -> &'static str {
         ts(match self {
-            Theme::System => "Use system setting",
-            Theme::Light => "Light",
-            Theme::Dark => "Dark",
+            Theme::System => "theme.system",
+            Theme::Light => "theme.light",
+            Theme::Dark => "theme.dark",
         })
     }
     pub fn index(self) -> i32 {
@@ -670,10 +670,10 @@ impl Material {
     ];
     pub fn label(self) -> &'static str {
         ts(match self {
-            Material::Mica => "Mica",
-            Material::MicaAlt => "Mica Alt",
-            Material::Acrylic => "Acrylic",
-            Material::Solid => "Solid (none)",
+            Material::Mica => "material.mica",
+            Material::MicaAlt => "material.mica_alt",
+            Material::Acrylic => "material.acrylic",
+            Material::Solid => "material.solid",
         })
     }
     pub fn index(self) -> i32 {
@@ -706,12 +706,12 @@ impl LogLevel {
     ];
     pub fn label(self) -> &'static str {
         ts(match self {
-            LogLevel::Off => "Off",
-            LogLevel::Error => "Error",
-            LogLevel::Warn => "Warning",
-            LogLevel::Info => "Info",
-            LogLevel::Debug => "Debug",
-            LogLevel::Trace => "Trace (verbose)",
+            LogLevel::Off => "log_level.off",
+            LogLevel::Error => "log_level.error",
+            LogLevel::Warn => "log_level.warn",
+            LogLevel::Info => "log_level.info",
+            LogLevel::Debug => "log_level.debug",
+            LogLevel::Trace => "log_level.trace",
         })
     }
     /// `tracing` filter directive token.

@@ -25,12 +25,13 @@ pub enum Status {
 }
 
 impl Status {
+    /// i18n key for this status; resolve with `i18n::t` at the display site.
     pub fn label(self) -> &'static str {
         match self {
-            Status::Disconnected => "Disconnected",
-            Status::Connecting => "Connecting…",
-            Status::Connected => "Connected",
-            Status::Error => "Error",
+            Status::Disconnected => "status.disconnected",
+            Status::Connecting => "status.connecting",
+            Status::Connected => "status.connected",
+            Status::Error => "status.error",
         }
     }
 }
@@ -116,23 +117,23 @@ impl Snapshot {
         if connected > 0 {
             format!(
                 "{} · {}",
-                tn("{n} connected", connected),
-                tn("{n} peers", self.total_peers())
+                tn("tray.summary_connected", connected),
+                tn("peers.count", self.total_peers())
             )
         } else if self
             .nets
             .values()
             .any(|n| matches!(n.status, Status::Connecting))
         {
-            t("Connecting…")
+            t("status.connecting")
         } else if self
             .nets
             .values()
             .any(|n| matches!(n.status, Status::Error))
         {
-            t("Error")
+            t("status.error")
         } else {
-            t("Not connected")
+            t("tray.summary_not_connected")
         }
     }
 }

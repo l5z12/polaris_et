@@ -1,24 +1,21 @@
-//! Lightweight in-app internationalization (English + Simplified Chinese).
+//! In-app internationalization (English + Simplified Chinese).
 //!
-//! The UI is keyed by its **English source string**: `t("Connect")` returns the
-//! Chinese translation when the effective language is Chinese, and the English
-//! text itself otherwise (or when a translation is missing). This keeps call
-//! sites readable and makes English a guaranteed fallback.
+//! UI strings are referenced by **namespaced keys** (e.g. `tray.show_polaris`,
+//! `network.general.profile_name`). Translations live in JSON locale files under
+//! `locales/`, embedded at build time; `en.json` is the source of truth and the
+//! fallback for any key missing from another locale.
 //!
-//! The effective language lives in a process-global atomic, set once per render
-//! from the persisted setting (see `main::root`). Because the reactor re-renders
-//! from the root and rebuilds the whole widget tree on any state change, setting
-//! the atomic *synchronously at the top of the root* — before children run —
-//! means every `t()` in that render already sees the new language. The
-//! re-render itself is driven by the `Store` prop changing, exactly like any
-//! other setting.
-//!
-//! Translations are read from any thread (the tray builds its menu/tooltip off
-//! the UI thread), so the atomic is the single source of truth.
+//! The effective language is a process-global atomic, set once per render from
+//! the persisted setting (see `main::root`). Because the reactor re-renders the
+//! whole tree from the root on any state change, setting the atomic
+//! synchronously at the top of the root makes every `t()` in that render see the
+//! new language; the re-render itself is driven by the `Store` prop changing,
+//! like any other setting. Translations are read from any thread (the tray
+//! builds its menu/tooltip off the UI thread).
 
+use std::collections::HashMap;
+use std::sync::OnceLock;
 use std::sync::atomic::{AtomicU8, Ordering};
-
-mod zh;
 
 /// The user-facing language preference (persisted in `Settings`).
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default, serde::Serialize, serde::Deserialize)]
@@ -37,7 +34,7 @@ impl Language {
     /// language; the concrete languages always read in their own script.
     pub fn label(self) -> String {
         match self {
-            Language::System => t("Follow system language"),
+            Language::System => t("settings.language_follow"),
             Language::English => "English".to_string(),
             Language::Chinese => "中文".to_string(),
         }
@@ -57,6 +54,49 @@ const EN: u8 = 0;
 const ZH: u8 = 1;
 
 static EFFECTIVE: AtomicU8 = AtomicU8::new(EN);
+
+static EN_MAP: OnceLock<HashMap<String, String>> = OnceLock::new();
+static ZH_MAP: OnceLock<HashMap<String, String>> = OnceLock::new();
+
+fn en_map() -> &'static HashMap<String, String> {
+    EN_MAP.get_or_init(|| load(include_str!("../locales/en.json")))
+}
+fn zh_map() -> &'static HashMap<String, String> {
+    ZH_MAP.get_or_init(|| load(include_str!("../locales/zh.json")))
+}
+
+/// Parse a locale JSON document and flatten its nested objects into dotted keys.
+fn load(src: &str) -> HashMap<String, String> {
+    let mut out = HashMap::new();
+    match serde_json::from_str::<serde_json::Value>(src) {
+        Ok(v) => flatten(String::new(), &v, &mut out),
+        Err(e) => {
+            // The locale files ship with the binary, so this is a build-time
+            // mistake; surface it but don't crash the UI.
+            debug_assert!(false, "invalid locale JSON: {e}");
+        }
+    }
+    out
+}
+
+fn flatten(prefix: String, v: &serde_json::Value, out: &mut HashMap<String, String>) {
+    match v {
+        serde_json::Value::Object(map) => {
+            for (k, val) in map {
+                let key = if prefix.is_empty() {
+                    k.clone()
+                } else {
+                    format!("{prefix}.{k}")
+                };
+                flatten(key, val, out);
+            }
+        }
+        serde_json::Value::String(s) => {
+            out.insert(prefix, s.clone());
+        }
+        _ => {}
+    }
+}
 
 /// Resolve a preference to a concrete language, detecting the OS locale for
 /// [`Language::System`].
@@ -88,30 +128,37 @@ pub fn is_zh() -> bool {
     EFFECTIVE.load(Ordering::Relaxed) == ZH
 }
 
-/// Translate a (possibly dynamic) UI string. Returns an owned `String` so it
-/// composes with both `impl Into<String>` widget setters and `format!`.
-pub fn t(s: &str) -> String {
+/// Look up `key` in the effective locale, falling back to English, then to the
+/// key itself (a missing-key signal).
+fn lookup(key: &str) -> &'static str {
     if is_zh()
-        && let Some(z) = zh::zh(s)
+        && let Some(s) = zh_map().get(key)
     {
-        return z.to_string();
+        return s;
     }
-    s.to_string()
+    if let Some(s) = en_map().get(key) {
+        return s;
+    }
+    // en.json is the complete source of truth, so a miss is a programmer error
+    // (caught by the locale-key test / debug assert) rather than a real path.
+    debug_assert!(false, "missing i18n key: {key}");
+    "?"
 }
 
-/// Translate a `&'static str` to a `&'static str` — for `enum::label()` methods
-/// that must keep that return type.
-pub fn ts(s: &'static str) -> &'static str {
-    if is_zh()
-        && let Some(z) = zh::zh(s)
-    {
-        return z;
-    }
-    s
+/// Translate a namespaced key to an owned string (composes with `impl
+/// Into<String>` widget setters and `format!`).
+pub fn t(key: &str) -> String {
+    lookup(key).to_string()
 }
 
-/// Translate a template containing `{n}`, then substitute the count. The English
-/// key is the template itself, e.g. `tn("{n} peers", 3)`.
-pub fn tn(template: &str, n: usize) -> String {
-    t(template).replace("{n}", &n.to_string())
+/// Translate a `&'static str` key to a `&'static str` — for `enum::label()`
+/// methods that must keep that return type.
+pub fn ts(key: &'static str) -> &'static str {
+    lookup(key)
+}
+
+/// Translate a key whose value contains `{n}`, then substitute the count, e.g.
+/// `tn("peers.count", 3)`.
+pub fn tn(key: &str, n: usize) -> String {
+    t(key).replace("{n}", &n.to_string())
 }

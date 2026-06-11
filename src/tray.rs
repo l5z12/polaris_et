@@ -183,8 +183,8 @@ unsafe fn show_menu(hwnd: HWND) {
         };
         // Built at runtime so they follow the current UI language. AppendMenuW
         // copies the string, so the temporaries can drop right after.
-        let show = wide(&crate::i18n::t("Show Polaris"));
-        let quit = wide(&crate::i18n::t("Quit"));
+        let show = wide(&crate::i18n::t("tray.show_polaris"));
+        let quit = wide(&crate::i18n::t("tray.quit"));
         let _ = AppendMenuW(menu, MF_STRING, ID_SHOW as usize, PCWSTR(show.as_ptr()));
         let _ = AppendMenuW(menu, MF_STRING, ID_QUIT as usize, PCWSTR(quit.as_ptr()));
 
@@ -452,8 +452,8 @@ unsafe fn hide_to_tray(hwnd: HWND) {
     // First time only: tell the user where the window went.
     if !HINT_SHOWN.swap(true, Ordering::Relaxed) {
         show_hint(
-            &crate::i18n::t("Polaris is still running"),
-            &crate::i18n::t("Click the tray icon to reopen, or right-click it to quit."),
+            &crate::i18n::t("tray.balloon_title"),
+            &crate::i18n::t("tray.balloon_body"),
         );
     }
 }
