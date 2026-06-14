@@ -418,7 +418,10 @@ pub fn home_page(ctx: &PageCtx) -> Element {
         "",
         hstack((
             stat("home.stat_connected", format!("{}", snap.connected_count())),
-            stat("home.stat_networks", format!("{}", ctx.store.profiles.len())),
+            stat(
+                "home.stat_networks",
+                format!("{}", ctx.store.profiles.len()),
+            ),
             stat("home.stat_peers", format!("{}", snap.total_peers())),
             stat("home.stat_downloaded", human_bytes(snap.total_rx())),
             stat("home.stat_uploaded", human_bytes(snap.total_tx())),
@@ -441,6 +444,8 @@ pub fn home_page(ctx: &PageCtx) -> Element {
                 add_network_button(ctx),
                 import_button(ctx),
                 paste_button(ctx),
+                backup_button(ctx),
+                restore_button(ctx),
             ))
             .spacing(10.0)
             .grid_column(1),
@@ -520,6 +525,7 @@ fn network_card(ctx: &PageCtx, idx: usize) -> Element {
     };
 
     let del = delete_button(ctx, idx, prof.id.clone());
+    let export = export_button(&prof);
 
     let top = grid((
         hstack((
@@ -529,7 +535,7 @@ fn network_card(ctx: &PageCtx, idx: usize) -> Element {
         .spacing(10.0)
         .vertical_alignment(VerticalAlignment::Center)
         .grid_column(0),
-        hstack((edit, del, action))
+        hstack((edit, export, del, action))
             .spacing(10.0)
             .vertical_alignment(VerticalAlignment::Center)
             .grid_column(1),
@@ -540,9 +546,13 @@ fn network_card(ctx: &PageCtx, idx: usize) -> Element {
         text_block(t(status.label()))
             .font_size(12.0)
             .foreground(color_for(status)),
-        text_block(format!("{}  {}", t("home.field_network"), prof.network_name))
-            .font_size(12.0)
-            .opacity(0.65),
+        text_block(format!(
+            "{}  {}",
+            t("home.field_network"),
+            prof.network_name
+        ))
+        .font_size(12.0)
+        .opacity(0.65),
         text_block(format!("IP  {ip}"))
             .font_size(12.0)
             .opacity(0.65),
@@ -726,6 +736,21 @@ fn sanitize(name: &str) -> String {
     }
 }
 
+/// Force `path` to end in `.ext` (the chosen format's real extension), so a file
+/// saved through a filter the dialog didn't auto-extension still gets the right
+/// suffix.
+fn ensure_ext(mut path: std::path::PathBuf, ext: &str) -> std::path::PathBuf {
+    let ok = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|e| e.eq_ignore_ascii_case(ext))
+        .unwrap_or(false);
+    if !ok {
+        path.set_extension(ext);
+    }
+    path
+}
+
 // ─────────────────────────── Network → General ────────────────────────────
 
 fn general_panel(ctx: &PageCtx, p: &Profile) -> Element {
@@ -807,13 +832,16 @@ fn general_panel(ctx: &PageCtx, p: &Profile) -> Element {
         ),
         JoinMethod::Standalone => conn.push(
             text_block(t("network.general.standalone_hint"))
-            .font_size(12.0)
-            .opacity(0.7)
-            .wrap()
-            .into(),
+                .font_size(12.0)
+                .opacity(0.7)
+                .wrap()
+                .into(),
         ),
     }
-    let connection = card("network.general.connection", vstack(conn).spacing(14.0).into());
+    let connection = card(
+        "network.general.connection",
+        vstack(conn).spacing(14.0).into(),
+    );
 
     let mut addr: Vec<Element> = vec![switch_row(
         "network.general.dhcp",
@@ -842,7 +870,10 @@ fn general_panel(ctx: &PageCtx, p: &Profile) -> Element {
             .into(),
         );
     }
-    let addressing = card("network.general.addressing", vstack(addr).spacing(14.0).into());
+    let addressing = card(
+        "network.general.addressing",
+        vstack(addr).spacing(14.0).into(),
+    );
 
     vstack((profile_card, identity, device, connection, addressing))
         .spacing(18.0)
@@ -934,34 +965,77 @@ fn duplicate_button(ctx: &PageCtx) -> Button {
         })
 }
 
+/// Export one network, letting the user pick the format in the save dialog:
+/// Polaris-native (lossless), EasyTier TOML, or EasyTier NetworkConfig JSON.
 fn export_button(p: &Profile) -> Button {
     let p = p.clone();
     button(t("common.export"))
+        .subtle()
         .icon(SymbolGlyph::Upload)
         .on_click(move || {
-            let default = format!("{}.toml", sanitize(&p.name));
+            // The two *.json formats can't be told apart by extension, so use the
+            // save dialog's 1-based file-type index (1 Polaris, 2 TOML, 3 EasyTier).
+            let default = format!("{}.json", sanitize(&p.name));
+            let f_polaris = t("dialog.polaris_config");
             let f_toml = t("dialog.et_config");
             let f_json = t("dialog.network_config_json");
-            if let Some(path) = crate::dialog::save_file(
+            if let Some((path, idx)) = crate::dialog::save_file_typed(
                 &default,
                 &[
+                    (f_polaris.as_str(), "*.json"),
                     (f_toml.as_str(), "*.toml"),
                     (f_json.as_str(), "*.json"),
                 ],
             ) {
-                let is_json = path
-                    .extension()
-                    .and_then(|e| e.to_str())
-                    .map(|e| e.eq_ignore_ascii_case("json"))
-                    .unwrap_or(false);
-                let content = if is_json {
-                    profile_to_json(&p)
-                } else {
-                    profile_to_toml(&p)
+                let (content, ext) = match idx {
+                    2 => (profile_to_toml(&p), "toml"),
+                    3 => (profile_to_json(&p), "json"),
+                    _ => (profile_to_polaris_json(&p), "json"),
                 };
                 if let Ok(text) = content {
-                    let _ = std::fs::write(&path, text);
+                    let _ = std::fs::write(ensure_ext(path, ext), text);
                 }
+            }
+        })
+}
+
+/// Back up the whole store — every network plus the app settings — to one
+/// Polaris JSON file. Restore with [`restore_button`].
+fn backup_button(ctx: &PageCtx) -> Button {
+    let store = ctx.store.clone();
+    button(t("common.backup"))
+        .icon(SymbolGlyph::Save)
+        .on_click(move || {
+            let f = t("dialog.polaris_backup");
+            if let Some(path) =
+                crate::dialog::save_file("polaris-backup.json", &[(f.as_str(), "*.json")])
+                && let Ok(text) = store_to_backup_json(&store)
+            {
+                let _ = std::fs::write(ensure_ext(path, "json"), text);
+            }
+        })
+}
+
+/// Restore a full backup, replacing all networks + settings. Stops everything
+/// currently running first (restored profiles are given fresh ids).
+fn restore_button(ctx: &PageCtx) -> Button {
+    let set = ctx.set_store.clone();
+    let store = ctx.store.clone();
+    let engine = ctx.engine.clone();
+    button(t("common.restore"))
+        .icon(SymbolGlyph::Sync)
+        .on_click(move || {
+            let f = t("dialog.polaris_backup");
+            let f_all = t("dialog.all_files");
+            if let Some(path) =
+                crate::dialog::open_file(&[(f.as_str(), "*.json"), (f_all.as_str(), "*.*")])
+                && let Ok(new_store) = parse_backup(&path)
+            {
+                for p in &store.profiles {
+                    engine.stop(p.id.clone());
+                }
+                new_store.save();
+                set.call(new_store);
             }
         })
 }
@@ -1109,9 +1183,9 @@ fn routing_panel(ctx: &PageCtx, p: &Profile) -> Element {
             ),
             divider(),
             text_block(t("network.routing.use_exit_text"))
-            .font_size(12.0)
-            .opacity(0.7)
-            .wrap(),
+                .font_size(12.0)
+                .opacity(0.7)
+                .wrap(),
             text_box(p.exit_nodes.join("\n"))
                 .placeholder("10.126.126.10")
                 .multiline()
@@ -1287,7 +1361,10 @@ fn port_forwards_card(ctx: &PageCtx, p: &Profile) -> Element {
         }
     }
 
-    card("network.proxies.port_forwards", vstack(rows).spacing(10.0).into())
+    card(
+        "network.proxies.port_forwards",
+        vstack(rows).spacing(10.0).into(),
+    )
 }
 
 fn port_forward_header() -> Element {
@@ -1871,7 +1948,11 @@ pub fn logs_page(ctx: &PageCtx) -> Element {
             })
             .collect();
         sections.push(card(
-            &format!("{}  ({})", prof.name, tn("activity.count", net.events.len())),
+            &format!(
+                "{}  ({})",
+                prof.name,
+                tn("activity.count", net.events.len())
+            ),
             scroll_view(vstack(lines).spacing(4.0))
                 .max_height(320.0)
                 .into(),
@@ -1949,8 +2030,9 @@ pub fn settings_page(ctx: &PageCtx) -> Element {
         ComboBox::new(language_labels)
             .header(t("settings.language"))
             .selected_index(s.language.index())
-            .on_selection_changed(on_setting!(ctx, |st, v: i32| st.language =
-                Language::from_index(v)))
+            .on_selection_changed(
+                on_setting!(ctx, |st, v: i32| st.language = Language::from_index(v))
+            )
             .into(),
     );
 
@@ -2025,13 +2107,19 @@ pub fn about_page() -> Element {
         "about.app_title",
         vstack((
             text_block(t("about.desc")).font_size(14.0),
-            text_block(format!("{} {}", t("about.version"), env!("CARGO_PKG_VERSION")))
-                .font_size(12.0)
-                .opacity(0.7),
+            text_block(format!(
+                "{} {}",
+                t("about.version"),
+                env!("CARGO_PKG_VERSION")
+            ))
+            .font_size(12.0)
+            .opacity(0.7),
             text_block(format!("{} {}", t("about.engine"), easytier::VERSION))
                 .font_size(12.0)
                 .opacity(0.7),
-            text_block(t("about.built_with")).font_size(12.0).opacity(0.7),
+            text_block(t("about.built_with"))
+                .font_size(12.0)
+                .opacity(0.7),
         ))
         .spacing(6.0)
         .into(),
@@ -2042,8 +2130,14 @@ pub fn about_page() -> Element {
         vstack((
             link("about.link_polaris", "https://github.com/l5z12/polaris_et"),
             link("about.link_website", "https://easytier.cn"),
-            link("about.link_easy_tier", "https://github.com/EasyTier/EasyTier"),
-            link("about.link_reactor", "https://github.com/microsoft/windows-rs"),
+            link(
+                "about.link_easy_tier",
+                "https://github.com/EasyTier/EasyTier",
+            ),
+            link(
+                "about.link_reactor",
+                "https://github.com/microsoft/windows-rs",
+            ),
         ))
         .spacing(2.0)
         .into(),
@@ -2068,19 +2162,28 @@ pub fn about_page() -> Element {
     let license = card(
         "about.license",
         vstack((
-            text_block(t("about.copyright")).font_size(12.0).opacity(0.7),
+            text_block(t("about.copyright"))
+                .font_size(12.0)
+                .opacity(0.7),
             text_block(t("about.license_text"))
                 .font_size(12.0)
                 .opacity(0.7)
                 .wrap(),
-            link("about.link_gpl", "https://www.gnu.org/licenses/gpl-3.0.html"),
+            link(
+                "about.link_gpl",
+                "https://www.gnu.org/licenses/gpl-3.0.html",
+            ),
             link("about.link_source", "https://github.com/l5z12/polaris_et"),
         ))
         .spacing(6.0)
         .into(),
     );
 
-    page("nav.about", "about.subtitle", vec![about, links, credits, license])
+    page(
+        "nav.about",
+        "about.subtitle",
+        vec![about, links, credits, license],
+    )
 }
 
 // ───────────────────────────── Diagnostics ────────────────────────────────
@@ -2099,7 +2202,11 @@ fn yn(b: bool) -> &'static str {
 
 /// i18n key for the translated yes/no shown on the Diagnostics page.
 fn yn_key(b: bool) -> &'static str {
-    if b { "diagnostics.yes" } else { "diagnostics.no" }
+    if b {
+        "diagnostics.yes"
+    } else {
+        "diagnostics.no"
+    }
 }
 
 /// One-line environment summary, prepended to exported logs.
@@ -2254,9 +2361,9 @@ pub fn diagnostics_page(ctx: &PageCtx) -> Element {
     let log_body: Element = if lines.is_empty() {
         text_block(t("diagnostics.no_log"))
             .font_size(12.0)
-        .opacity(0.7)
-        .wrap()
-        .into()
+            .opacity(0.7)
+            .wrap()
+            .into()
     } else {
         let rows: Vec<Element> = lines
             .iter()
@@ -2282,7 +2389,11 @@ pub fn diagnostics_page(ctx: &PageCtx) -> Element {
     .into();
 
     let logs = card(
-        &format!("{}  ({})", t("diagnostics.live_log"), tn("diagnostics.lines", lines.len())),
+        &format!(
+            "{}  ({})",
+            t("diagnostics.live_log"),
+            tn("diagnostics.lines", lines.len())
+        ),
         vstack(vec![toolbar, log_body]).spacing(12.0).into(),
     );
 

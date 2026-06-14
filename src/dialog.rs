@@ -47,6 +47,13 @@ unsafe fn shell_item_path(item: &IShellItem) -> Option<PathBuf> {
 
 /// Show a "Save As" dialog. Returns the chosen path, or `None` if cancelled.
 pub fn save_file(default_name: &str, filters: &[(&str, &str)]) -> Option<PathBuf> {
+    save_file_typed(default_name, filters).map(|(p, _)| p)
+}
+
+/// Like [`save_file`], but also returns the 1-based index of the file type the
+/// user selected — needed when two filters share an extension (e.g. a Polaris
+/// `*.json` and an EasyTier `*.json`) and the path alone can't disambiguate.
+pub fn save_file_typed(default_name: &str, filters: &[(&str, &str)]) -> Option<(PathBuf, u32)> {
     unsafe {
         let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
         let dlg: IFileSaveDialog =
@@ -56,8 +63,9 @@ pub fn save_file(default_name: &str, filters: &[(&str, &str)]) -> Option<PathBuf
         let name = wide(default_name);
         let _ = dlg.SetFileName(PCWSTR(name.as_ptr()));
         dlg.Show(None).ok()?;
+        let idx = dlg.GetFileTypeIndex().unwrap_or(1);
         let item = dlg.GetResult().ok()?;
-        shell_item_path(&item)
+        shell_item_path(&item).map(|p| (p, idx))
     }
 }
 

@@ -45,7 +45,9 @@ impl Language {
     }
 
     pub fn from_index(i: i32) -> Self {
-        *Self::ALL.get(i.max(0) as usize).unwrap_or(&Language::System)
+        *Self::ALL
+            .get(i.max(0) as usize)
+            .unwrap_or(&Language::System)
     }
 }
 

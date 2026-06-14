@@ -17,7 +17,9 @@
     "import": "导入…",
     "export": "导出…",
     "paste_config": "粘贴配置",
-    "add_network": "添加网络"
+    "add_network": "添加网络",
+    "backup": "备份…",
+    "restore": "恢复…"
   },
   "status": {
     "disconnected": "未连接",
@@ -316,6 +318,8 @@
     "et_configs": "EasyTier 配置 (*.toml, *.json)",
     "et_config": "EasyTier 配置 (*.toml)",
     "network_config_json": "NetworkConfig JSON (*.json)",
+    "polaris_config": "Polaris 网络 (*.json)",
+    "polaris_backup": "Polaris 备份 (*.json)",
     "all_files": "所有文件",
     "text": "文本",
     "log": "日志"

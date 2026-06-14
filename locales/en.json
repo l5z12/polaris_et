@@ -17,7 +17,9 @@
     "import": "Import…",
     "export": "Export…",
     "paste_config": "Paste config",
-    "add_network": "Add network"
+    "add_network": "Add network",
+    "backup": "Backup…",
+    "restore": "Restore…"
   },
   "status": {
     "disconnected": "Disconnected",
@@ -316,6 +318,8 @@
     "et_configs": "EasyTier configs (*.toml, *.json)",
     "et_config": "EasyTier config (*.toml)",
     "network_config_json": "NetworkConfig JSON (*.json)",
+    "polaris_config": "Polaris network (*.json)",
+    "polaris_backup": "Polaris backup (*.json)",
     "all_files": "All files",
     "text": "Text",
     "log": "Log"

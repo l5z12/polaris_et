@@ -554,6 +554,36 @@ pub fn profile_to_json(p: &Profile) -> anyhow::Result<String> {
     Ok(serde_json::to_string_pretty(&p.to_network_config())?)
 }
 
+/// Serialize a profile to Polaris's own JSON. Lossless — unlike the EasyTier
+/// formats (which carry only the `NetworkConfig` subset), this keeps the display
+/// name, id, and every Polaris-only field, so it re-imports exactly.
+pub fn profile_to_polaris_json(p: &Profile) -> anyhow::Result<String> {
+    Ok(serde_json::to_string_pretty(p)?)
+}
+
+/// Serialize the whole store — every network plus the app settings — to a backup
+/// JSON. Same shape as the on-disk `config.json`; restore with [`parse_backup`].
+pub fn store_to_backup_json(store: &Store) -> anyhow::Result<String> {
+    Ok(serde_json::to_string_pretty(store)?)
+}
+
+/// Parse a full backup (a [`Store`]) for "Restore backup". Profile ids are
+/// re-keyed so a restored network can't collide with one still running under an
+/// old id.
+pub fn parse_backup(path: &Path) -> anyhow::Result<Store> {
+    let text = std::fs::read_to_string(path)?;
+    let mut store: Store =
+        serde_json::from_str(&text).map_err(|e| anyhow::anyhow!("not a Polaris backup: {e}"))?;
+    if store.profiles.is_empty() {
+        anyhow::bail!("backup contains no networks");
+    }
+    for p in &mut store.profiles {
+        p.id = gen_id();
+    }
+    store.selected = store.selected.min(store.profiles.len() - 1);
+    Ok(store)
+}
+
 /// Parse one or more profiles from a `.toml` or `.json` file produced by either
 /// Polaris or the official EasyTier GUI.
 pub fn import_profiles(path: &Path) -> anyhow::Result<Vec<Profile>> {
@@ -593,6 +623,38 @@ fn parse_toml_config(text: &str) -> anyhow::Result<Vec<Profile>> {
 }
 
 fn parse_json_configs(text: &str) -> anyhow::Result<Vec<Profile>> {
+    // Polaris-native exports first. EasyTier's NetworkConfig JSON lacks Profile's
+    // required fields (name, join_method, peers, …), so it can't match these by
+    // accident; a full backup (Store) contributes just its networks. Imported
+    // copies are re-keyed (import = add new networks, never adopt a live id).
+    if let Ok(mut p) = serde_json::from_str::<Profile>(text) {
+        p.id = gen_id();
+        return Ok(vec![p]);
+    }
+    if let Ok(v) = serde_json::from_str::<Vec<Profile>>(text)
+        && !v.is_empty()
+    {
+        return Ok(v
+            .into_iter()
+            .map(|mut p| {
+                p.id = gen_id();
+                p
+            })
+            .collect());
+    }
+    if let Ok(store) = serde_json::from_str::<Store>(text)
+        && !store.profiles.is_empty()
+    {
+        return Ok(store
+            .profiles
+            .into_iter()
+            .map(|mut p| {
+                p.id = gen_id();
+                p
+            })
+            .collect());
+    }
+
     #[derive(Deserialize)]
     struct Stored {
         config: NetworkConfig,
