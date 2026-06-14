@@ -526,6 +526,7 @@ fn network_card(ctx: &PageCtx, idx: usize) -> Element {
 
     let del = delete_button(ctx, idx, prof.id.clone());
     let export = export_button(&prof);
+    let copy = copy_config_button(&prof);
 
     let top = grid((
         hstack((
@@ -535,7 +536,7 @@ fn network_card(ctx: &PageCtx, idx: usize) -> Element {
         .spacing(10.0)
         .vertical_alignment(VerticalAlignment::Center)
         .grid_column(0),
-        hstack((edit, export, del, action))
+        hstack((edit, export, copy, del, action))
             .spacing(10.0)
             .vertical_alignment(VerticalAlignment::Center)
             .grid_column(1),
