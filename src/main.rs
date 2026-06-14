@@ -107,10 +107,12 @@ fn root(cx: &mut RenderCx, engine: &Engine) -> Element {
     {
         let engine = engine.clone();
         let auto = store.settings.auto_connect;
-        let id = store.current().id.clone();
-        let cfg = store.current().to_network_config();
+        // No networks → nothing to auto-connect.
+        let conn = store
+            .current()
+            .map(|p| (p.id.clone(), p.to_network_config()));
         cx.use_effect((), move || {
-            if auto {
+            if auto && let Some((id, cfg)) = conn {
                 engine.start(id, cfg);
             }
         });

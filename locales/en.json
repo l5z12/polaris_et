@@ -32,6 +32,7 @@
     "title": "Networks",
     "subtitle": "Connect to one or more EasyTier networks at the same time.",
     "saved_networks": "Your saved networks",
+    "empty": "No networks yet — click “Add network” above to create one.",
     "stat_connected": "Connected",
     "stat_networks": "Networks",
     "stat_peers": "Peers",
@@ -45,6 +46,8 @@
   },
   "network": {
     "title": "Network",
+    "empty": "No networks",
+    "empty_help": "You don't have any networks. Add one on the Home page to get started.",
     "live_title": "This network is live",
     "live_message": "Edits are saved now and apply the next time you reconnect it.",
     "tab_general": "General",

@@ -884,10 +884,9 @@ impl Store {
             return Store::default();
         };
         let mut store: Store = serde_json::from_str(&text).unwrap_or_default();
-        if store.profiles.is_empty() {
-            store.profiles.push(Profile::default());
-        }
-        store.selected = store.selected.min(store.profiles.len() - 1);
+        // An empty profile list is allowed (the user can delete every network);
+        // only a fresh install starts with the default network (Store::default).
+        store.selected = store.selected.min(store.profiles.len().saturating_sub(1));
         store
     }
 
@@ -902,7 +901,9 @@ impl Store {
         }
     }
 
-    pub fn current(&self) -> &Profile {
-        &self.profiles[self.selected.min(self.profiles.len() - 1)]
+    /// The selected profile, or `None` when there are no networks at all.
+    pub fn current(&self) -> Option<&Profile> {
+        self.profiles
+            .get(self.selected.min(self.profiles.len().saturating_sub(1)))
     }
 }

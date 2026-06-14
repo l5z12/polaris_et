@@ -168,9 +168,12 @@ macro_rules! on_edit {
         let store = $ctx.store.clone();
         move |$v: $t| {
             let mut s = store.clone();
-            let i = s.selected.min(s.profiles.len() - 1);
+            let i = s.selected.min(s.profiles.len().saturating_sub(1));
             {
-                let $p = &mut s.profiles[i];
+                // No selected profile (every network was deleted) → nothing to edit.
+                let Some($p) = s.profiles.get_mut(i) else {
+                    return;
+                };
                 $body;
             }
             s.save();
@@ -466,6 +469,9 @@ pub fn home_page(ctx: &PageCtx) -> Element {
     }
     children.push(summary);
     children.push(toolbar);
+    if ctx.store.profiles.is_empty() {
+        children.push(InfoBar::new(t("home.empty")).is_closable(false).into());
+    }
     for idx in 0..ctx.store.profiles.len() {
         children.push(network_card(ctx, idx));
     }
@@ -593,7 +599,18 @@ fn network_card(ctx: &PageCtx, idx: usize) -> Element {
 // ──────────────────────────────── Network ─────────────────────────────────
 
 pub fn network_page(ctx: &PageCtx) -> Element {
-    let p = ctx.store.current().clone();
+    // Every network can be deleted, so there may be nothing to edit.
+    let Some(p) = ctx.store.current().cloned() else {
+        return page(
+            "network.title",
+            "network.empty",
+            vec![
+                InfoBar::new(t("network.empty_help"))
+                    .is_closable(false)
+                    .into(),
+            ],
+        );
+    };
     let live = ctx.snap.is_live(&p.id);
     let sub_tab = ctx.sub_tab.as_str();
 
@@ -967,7 +984,9 @@ fn duplicate_button(ctx: &PageCtx) -> Button {
         .icon(SymbolGlyph::Copy)
         .on_click(move || {
             let mut s = store.clone();
-            let mut p = s.current().clone();
+            let Some(mut p) = s.current().cloned() else {
+                return;
+            };
             p.id = crate::config::Profile::default().id;
             p.name = format!("{} (copy)", p.name);
             s.profiles.push(p);
@@ -1068,20 +1087,20 @@ fn restore_button(ctx: &PageCtx) -> Button {
 
 /// Delete the profile at `idx`. Disabled when only one network remains.
 fn delete_button(ctx: &PageCtx, idx: usize, prof_id: String) -> Button {
-    let can_delete = ctx.store.profiles.len() > 1;
     let set = ctx.set_store.clone();
     let store = ctx.store.clone();
     let engine = ctx.engine.clone();
     button(t("common.delete"))
         .subtle()
         .icon(SymbolGlyph::Delete)
-        .enabled(can_delete)
         .on_click(move || {
             let mut s = store.clone();
-            if s.profiles.len() > 1 && idx < s.profiles.len() {
+            // Any network can be removed, including the last one (an empty list is
+            // a valid state — see Store::current / the Home empty hint).
+            if idx < s.profiles.len() {
                 engine.stop(prof_id.clone());
                 s.profiles.remove(idx);
-                s.selected = s.selected.min(s.profiles.len() - 1);
+                s.selected = s.selected.min(s.profiles.len().saturating_sub(1));
                 s.save();
                 set.call(s);
             }

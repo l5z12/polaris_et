@@ -32,6 +32,7 @@
     "title": "网络",
     "subtitle": "同时连接一个或多个 EasyTier 网络。",
     "saved_networks": "已保存的网络",
+    "empty": "还没有网络 —— 点击上方的“添加网络”来创建一个。",
     "stat_connected": "已连接",
     "stat_networks": "网络",
     "stat_peers": "节点",
@@ -45,6 +46,8 @@
   },
   "network": {
     "title": "网络",
+    "empty": "没有网络",
+    "empty_help": "您还没有任何网络。请在主页添加一个以开始使用。",
     "live_title": "此网络正在运行",
     "live_message": "更改已保存，将在下次重新连接时生效。",
     "tab_general": "常规",
