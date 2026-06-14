@@ -17,6 +17,7 @@
     "import": "Import…",
     "export": "Export…",
     "paste_config": "Paste config",
+    "copy_config": "Copy config",
     "add_network": "Add network",
     "backup": "Backup…",
     "restore": "Restore…"

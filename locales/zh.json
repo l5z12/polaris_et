@@ -17,6 +17,7 @@
     "import": "导入…",
     "export": "导出…",
     "paste_config": "粘贴配置",
+    "copy_config": "复制配置",
     "add_network": "添加网络",
     "backup": "备份…",
     "restore": "恢复…"

@@ -761,7 +761,12 @@ fn general_panel(ctx: &PageCtx, p: &Profile) -> Element {
                 .header(t("network.general.profile_name"))
                 .placeholder(t("network.general.profile_name_placeholder"))
                 .on_changed(on_edit!(ctx, |p, v: String| p.name = v)),
-            hstack((duplicate_button(ctx), export_button(p))).spacing(10.0),
+            hstack((
+                duplicate_button(ctx),
+                export_button(p),
+                copy_config_button(p),
+            ))
+            .spacing(10.0),
         ))
         .spacing(14.0)
         .into(),
@@ -995,6 +1000,20 @@ fn export_button(p: &Profile) -> Button {
                 if let Ok(text) = content {
                     let _ = std::fs::write(ensure_ext(path, ext), text);
                 }
+            }
+        })
+}
+
+/// Copy the current network's config to the clipboard as EasyTier TOML — the
+/// shareable text that "Paste config" reads back.
+fn copy_config_button(p: &Profile) -> Button {
+    let p = p.clone();
+    button(t("common.copy_config"))
+        .subtle()
+        .icon(SymbolGlyph::Copy)
+        .on_click(move || {
+            if let Ok(text) = profile_to_toml(&p) {
+                crate::dialog::write_clipboard_text(&text);
             }
         })
 }
