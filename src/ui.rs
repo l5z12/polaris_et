@@ -330,20 +330,26 @@ fn divider() -> Element {
 /// horizontal space (~120 px for the default "On"/"Off" labels) down to just
 /// the slider — without this the label floats half a card away.
 fn switch_row(label: &str, help: &str, value: bool, on_change: impl Fn(bool) + 'static) -> Element {
-    hstack((
+    // A Grid, not an hstack: a horizontal stack hands the text column infinite
+    // width, so `.wrap()` never fires and a long help line clips at the card edge.
+    // The Star column bounds the text's width, so it wraps onto as many lines as
+    // it needs.
+    grid((
         ToggleSwitch::new(value)
             .on_content("")
             .off_content("")
-            .on_changed(on_change),
+            .on_changed(on_change)
+            .grid_column(0)
+            .vertical_alignment(VerticalAlignment::Top),
         vstack((
             text_block(t(label)).font_size(13.0).semibold(),
             text_block(t(help)).font_size(11.0).opacity(0.6).wrap(),
         ))
         .spacing(2.0)
-        .horizontal_alignment(HorizontalAlignment::Stretch),
+        .grid_column(1),
     ))
-    .spacing(12.0)
-    .vertical_alignment(VerticalAlignment::Top)
+    .columns([GridLength::Auto, GridLength::Star(1.0)])
+    .column_spacing(12.0)
     .into()
 }
 
