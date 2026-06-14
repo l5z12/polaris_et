@@ -138,8 +138,84 @@ jobs:
             polaris-*-${{ matrix.arch }}-setup.exe
           if-no-files-found: error
 
+  # MSIX needs the `--features msix` exe (highestAvailable UAC manifest), a
+  # different binary from the standalone exe the zip/installer reuse — so it gets
+  # its own build instead of repackaging the prebuilt payload. The heavy deps come
+  # from the same rust-cache the Build workflow populates (keyed by target), so
+  # only polaris_et recompiles here. Packs unsigned: the Microsoft Store re-signs
+  # on submission; sideloaders sign with their own cert (see packaging/PACKAGING.md).
+  msix:
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            target: x86_64-pc-windows-msvc
+          - arch: arm64
+            target: aarch64-pc-windows-msvc # cross-compiled on the x64 runner
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup
+        with:
+          target: ${{ matrix.target }}
+
+      - name: Pack MSIX (unsigned)
+        shell: pwsh
+        # pack-msix.ps1 builds (--features msix) → stages → makeappx pack. No -Sign.
+        run: |
+          $ver = "${{ github.ref_name }}".TrimStart('v') # 0.1.0 / 0.1.0-rc1
+          & packaging/pack-msix.ps1 -Arch ${{ matrix.arch }} -Version $ver
+          if ($LASTEXITCODE -ne 0) { throw "pack-msix.ps1 failed ($LASTEXITCODE)" }
+          # Name it like the other release assets (polaris-<tag>-<arch>.msix).
+          $src = Get-ChildItem "target/Polaris-*-${{ matrix.arch }}.msix" | Select-Object -First 1
+          if (-not $src) { throw "no .msix produced" }
+          Copy-Item $src.FullName "polaris-${{ github.ref_name }}-${{ matrix.arch }}.msix"
+
+      - name: Upload MSIX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-msix-${{ matrix.arch }}
+          path: polaris-*-${{ matrix.arch }}.msix
+          if-no-files-found: error
+
+  # Combine the per-arch .msix into one .msixbundle (the single artifact you
+  # upload to the Microsoft Store). Runs after both msix legs; bundling is just
+  # makeappx repacking the finished packages, so no Rust build here. Unsigned.
+  msixbundle:
+    needs: msix
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download per-arch MSIX
+        uses: actions/download-artifact@v4
+        with:
+          pattern: dist-msix-*
+          path: msix
+          merge-multiple: true # flatten both arches into msix/
+
+      - name: Bundle (unsigned)
+        shell: pwsh
+        run: |
+          $ver = "${{ github.ref_name }}".TrimStart('v') # 0.1.0 / 0.1.0-rc1
+          & packaging/bundle-msix.ps1 -Version $ver -InputDir msix -Out "polaris-${{ github.ref_name }}.msixbundle"
+          if ($LASTEXITCODE -ne 0) { throw "bundle-msix.ps1 failed ($LASTEXITCODE)" }
+
+      - name: Upload bundle artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-msixbundle
+          path: polaris-*.msixbundle
+          if-no-files-found: error
+
   release:
-    needs: build
+    needs: [build, msix, msixbundle]
     runs-on: ubuntu-latest # just collects the zips and calls the API
     permissions:
       contents: write # create the release + upload assets
@@ -156,15 +232,22 @@ jobs:
           files: |
             artifacts/*.zip
             artifacts/*-setup.exe
+            artifacts/*.msix
+            artifacts/*.msixbundle
           generate_release_notes: true
           # Tags with a pre-release suffix (e.g. v0.1.0-rc1) ship as pre-releases.
           prerelease: ${{ contains(github.ref_name, '-') }}
           body: |
             Pick the build for your CPU — `x64` for Intel/AMD, `arm64` for
-            Windows on ARM. Two formats each:
+            Windows on ARM. Three formats each:
 
             - `*-setup.exe` — installer (Start Menu shortcut, uninstaller).
             - `*.zip` — portable; keep every file together.
+            - `*.msix` — single-arch MSIX package, **unsigned** (for sideloading
+              one CPU; sign it first with your own cert — see
+              `packaging/PACKAGING.md`). VPN-capable; requires Windows 11.
+            - `*.msixbundle` — both CPUs in one **unsigned** bundle, for
+              Microsoft Store submission (the Store re-signs it).
 
             **Requires the [Windows App SDK runtime](https://learn.microsoft.com/windows/apps/windows-app-sdk/downloads)**
             (this is a framework-dependent build). For the portable zip,

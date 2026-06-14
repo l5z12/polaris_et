@@ -83,9 +83,23 @@ pwsh packaging\pack-msix.ps1 -SkipBuild             # reuse target\<triple>\rele
 
 Output: `target\Polaris-<version>-<arch>.msix`.
 
-For a **Store upload** that's all you need — do *not* sign locally; Partner
-Center re-signs with the Store certificate. Upload the `.msix` (or, for both
-CPUs, bundle the per-arch packages into an `.msixbundle`).
+For a **Store upload**, combine both CPUs into one `.msixbundle` with
+`bundle-msix.ps1` (pack each arch first):
+
+```powershell
+pwsh packaging\pack-msix.ps1 -Arch x64
+pwsh packaging\pack-msix.ps1 -Arch arm64
+pwsh packaging\bundle-msix.ps1   # -> target\Polaris-<version>.msixbundle
+```
+
+Do *not* sign locally — Partner Center re-signs with the Store certificate.
+Upload the `.msixbundle` (or a single-arch `.msix` if you only ship one CPU).
+
+**CI:** pushing a version tag (`v*`) runs `release.yml`, which attaches, all
+**unsigned**, `polaris-<tag>-x64.msix` + `-arm64.msix` (the `msix` job, via
+`pack-msix.ps1`) and the combined `polaris-<tag>.msixbundle` (the `msixbundle`
+job, via `bundle-msix.ps1`) to the GitHub Release. Unsigned for the same reason —
+the Store re-signs; sideloaders sign their own.
 
 ## Sideload to test it actually launches
 
