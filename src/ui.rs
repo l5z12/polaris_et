@@ -2055,7 +2055,20 @@ pub fn settings_page(ctx: &PageCtx) -> Element {
             .into(),
     );
 
-    let mut cards = vec![appearance, language, behavior, tray];
+    let files = card(
+        "settings.files",
+        vstack((
+            text_block(t("settings.files_help"))
+                .font_size(12.0)
+                .opacity(0.7)
+                .wrap(),
+            button(t("settings.open_config_folder")).on_click(open_config_folder),
+        ))
+        .spacing(10.0)
+        .into(),
+    );
+
+    let mut cards = vec![appearance, language, behavior, tray, files];
     cards.push(diagnostics_card(ctx));
     cards.push(admin_card(ctx));
 
@@ -2264,6 +2277,14 @@ fn open_logs_folder() {
     let dir = crate::logging::logs_dir();
     let _ = std::fs::create_dir_all(&dir);
     let _ = std::process::Command::new("explorer").arg(dir).spawn();
+}
+
+/// Open `%APPDATA%\Polaris` (config.json, backups, logs) in Explorer.
+fn open_config_folder() {
+    if let Some(dir) = Store::config_dir() {
+        let _ = std::fs::create_dir_all(&dir);
+        let _ = std::process::Command::new("explorer").arg(dir).spawn();
+    }
 }
 
 /// Settings → Diagnostics: enable toggle, then log level / retention / export.

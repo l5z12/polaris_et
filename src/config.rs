@@ -862,9 +862,15 @@ impl Default for Store {
 }
 
 impl Store {
-    fn path() -> Option<PathBuf> {
+    /// `%APPDATA%\Polaris` — holds `config.json`, backups, and the `logs` subdir.
+    pub fn config_dir() -> Option<PathBuf> {
         let mut p = dirs::config_dir()?;
         p.push("Polaris");
+        Some(p)
+    }
+
+    fn path() -> Option<PathBuf> {
+        let mut p = Self::config_dir()?;
         p.push("config.json");
         Some(p)
     }
