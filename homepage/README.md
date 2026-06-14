@@ -18,7 +18,11 @@ with **[Bun](https://bun.sh)**.
   media query (no JS), so cards and buttons are correct in dark mode.
 
 Content lives in [`content.ts`](content.ts) — edit it there; both languages are
-required for each string. Styling is in [`public/styles.css`](public/styles.css).
+required for each string. The **privacy policy** is in [`privacy.ts`](privacy.ts)
+(rendered to `/privacy.html` plus language-locked `/en/` and `/zh/` variants); its
+"Last updated" date is derived at build time from that file's last **git commit**,
+so commit a policy edit and the date moves itself. Styling is in
+[`public/styles.css`](public/styles.css).
 
 ## Develop
 

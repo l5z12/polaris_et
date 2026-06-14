@@ -175,3 +175,24 @@ main {
 .foot p {
   margin: 6px 0;
 }
+
+/* Long-form pages (privacy policy). */
+.prose {
+  max-width: 720px;
+  margin: 24px auto 0;
+}
+.prose h1 {
+  font-size: clamp(28px, 5vw, 40px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 12px 0 4px;
+}
+.prose p {
+  font-size: 16px;
+  margin: 16px 0;
+}
+.prose .muted {
+  color: var(--fg-dim);
+  font-size: 14px;
+  margin-top: 0;
+}

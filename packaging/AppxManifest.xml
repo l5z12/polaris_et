@@ -1,8 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   MSIX manifest for packaging Polaris as a full-trust desktop app (Microsoft
-  Store or sideload). See PACKAGING.md. Set Identity Name/Publisher/Version to
-  match your Store reservation and signing certificate before packing.
+  Store or sideload). See PACKAGING.md.
+
+  Identity below is the Microsoft Store reservation for this app (see ../.identity:
+  Store ID 9P3SRX33XN34, PFN L5Z12.Polaris-MeshVPN_8kxbp6pv6h7wp). Do NOT change
+  Name/Publisher/PublisherDisplayName — they must match Partner Center exactly or
+  the Store will reject the upload. `pack-msix.ps1` rewrites Version and
+  ProcessorArchitecture per build; leave their literal values here valid so the
+  manifest stays standalone-correct.
 -->
 <Package
   xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
@@ -11,20 +17,33 @@
   IgnorableNamespaces="uap rescap">
 
   <Identity
-    Name="Polaris.EasyTier"
-    Publisher="CN=Polaris"
+    Name="L5Z12.Polaris-MeshVPN"
+    Publisher="CN=8ED44A81-DE3E-4BF0-8F28-5F94C3FAAF7D"
     Version="0.1.0.0"
     ProcessorArchitecture="x64" />
 
   <Properties>
-    <DisplayName>Polaris</DisplayName>
-    <PublisherDisplayName>Polaris</PublisherDisplayName>
+    <DisplayName>Polaris - Mesh VPN</DisplayName>
+    <PublisherDisplayName>L5Z12</PublisherDisplayName>
     <Description>A fast, friendly WinUI client for the EasyTier mesh VPN.</Description>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
 
   <Dependencies>
     <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.19041.0" MaxVersionTested="10.0.22621.0" />
+    <!-- Windows App SDK (WinUI 3) runtime, declared so a packaged install pulls
+         the framework instead of relying on it already being present. This repo
+         pins WinAppSDK 2.x (the `Microsoft.WindowsAppRuntime.2` framework family,
+         PFN Microsoft.WindowsAppRuntime.2_8wekyb3d8bbwe); MinVersion matches the
+         Runtime nupkg the build fetches (2.1.3). Bump MinVersion when you bump the
+         windows-reactor rev to a newer WinAppSDK.
+         NOTE: 2.x is the WinAppSDK *preview* channel. Sideload installs resolve it
+         from any installed `.2` framework >= MinVersion, but the Microsoft Store
+         only auto-provisions *stable* (1.x) frameworks — a Store build on the 2.x
+         preview must ship self-contained instead. See PACKAGING.md. -->
+    <PackageDependency Name="Microsoft.WindowsAppRuntime.2"
+                       MinVersion="2.1.3.0"
+                       Publisher="CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US" />
   </Dependencies>
 
   <Resources>
@@ -51,9 +70,9 @@
     <!-- Lets the bundled Win32 exe run as a full-trust desktop app. -->
     <rescap:Capability Name="runFullTrust" />
     <!-- Allows the app to elevate: paired with the `highestAvailable` exe
-         manifest from a `--features msix` build, this lets EasyTier create the
+         manifest from an `msix`-feature build, this lets EasyTier create the
          TUN adapter. Requires Windows 11. `allowElevation` is a restricted
-         capability — Store submissions must justify it; drop this line (and the
+         capability; Store submissions must justify it. Drop this line (and the
          `msix` feature) for a proxy-only package. See PACKAGING.md. -->
     <rescap:Capability Name="allowElevation" />
   </Capabilities>

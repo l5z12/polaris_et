@@ -72,6 +72,6 @@ const schedule = (file: string) => {
     reloadAll();
   }, 80);
 };
-for (const target of ["public", "build.ts", "content.ts"]) {
+for (const target of ["public", "build.ts", "content.ts", "privacy.ts"]) {
   watch(target, { recursive: true }, (_event, file) => file && schedule(String(file)));
 }

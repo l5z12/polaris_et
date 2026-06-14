@@ -7,6 +7,9 @@ export type Bi = { en: string; zh: string };
 export const REPO = "https://github.com/l5z12/polaris_et";
 export const RELEASES = `${REPO}/releases`;
 
+// Privacy policy content + its EasyTier link live in ./privacy.ts (so its git
+// history drives the policy's "last updated" date independently of site copy).
+
 export const site = {
   name: "Polaris",
   // <title> / meta description use the English copy (the canonical language).
@@ -79,4 +82,6 @@ export const site = {
     en: "Free software under the GNU GPL v3.0.",
     zh: "依据 GNU GPL v3.0 许可的自由软件。",
   } satisfies Bi,
+
+  privacyLink: { en: "Privacy Policy", zh: "隐私政策" } satisfies Bi,
 };
