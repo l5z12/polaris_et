@@ -3,6 +3,11 @@ name: Build
 # Build release binaries (x64 + arm64) on every branch push (and on demand) and
 # upload them as workflow artifacts for testing. Tag pushes are handled by
 # release.yml instead — `branches: ['**']` matches only branch pushes, not tags.
+#
+# By default a push just builds the loose payload. To also produce the full set
+# of Release-style packages (zip, setup.exe, MSIX, msixbundle), either run the
+# workflow manually with the `packages` input checked, or include the marker
+# !build-release! in the commit message — both flip BUILD_PACKAGES on.
 on:
   push:
     branches: ["**"]
@@ -22,6 +27,11 @@ on:
       - ".github/workflows/build.yml"
       - ".github/actions/setup/**"
   workflow_dispatch:
+    inputs:
+      packages:
+        description: "Also build release packages (zip, setup.exe, MSIX, msixbundle), like the Release workflow"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -33,6 +43,10 @@ concurrency:
 jobs:
   build:
     runs-on: windows-latest
+    # On by manual input, or by a !build-release! marker in the commit message
+    # (head_commit is null on workflow_dispatch, so contains() is just false there).
+    env:
+      BUILD_PACKAGES: ${{ inputs.packages || contains(github.event.head_commit.message, '!build-release!') }}
     strategy:
       fail-fast: false # one arch failing shouldn't cancel the other
       matrix:
@@ -86,5 +100,148 @@ jobs:
         with:
           name: ${{ steps.stage.outputs.name }}
           path: dist/
+          if-no-files-found: error
+          retention-days: 14
+
+      # Opt-in (manual trigger only): the same portable zip + Inno Setup installer
+      # the Release workflow ships. Both reuse the staged dist/ payload.
+      - name: Package (zip)
+        if: ${{ env.BUILD_PACKAGES == 'true' }}
+        shell: pwsh
+        run: Compress-Archive -Path "dist/*" -DestinationPath "${{ steps.stage.outputs.name }}.zip" -Force
+
+      # Branch builds have no version tag, so the installer's display version is
+      # ci-<short sha>; VersionInfo (which must be numeric) comes from Cargo.toml.
+      - name: Build installer (Inno Setup)
+        if: ${{ env.BUILD_PACKAGES == 'true' }}
+        shell: pwsh
+        run: |
+          choco install innosetup --no-progress -y
+          $iscc = (Get-Command iscc.exe -ErrorAction SilentlyContinue).Source
+          if (-not $iscc) { $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" }
+          $verNum   = (Select-String -Path Cargo.toml -Pattern '^version\s*=\s*"([^"]+)"' |
+                       Select-Object -First 1).Matches[0].Groups[1].Value   # numeric VERSIONINFO
+          $short    = "${{ github.sha }}".Substring(0,7)
+          $ver      = "ci-$short"                                            # display version
+          $archSpec = if ("${{ matrix.arch }}" -eq "arm64") { "arm64" } else { "x64os" }
+          # Simplified-Chinese wizard translation (unofficial, kira-96). Best
+          # effort — the installer falls back to English-only if it can't fetch.
+          $isl = Join-Path (Get-Location) "ChineseSimplified.isl"
+          try {
+            Invoke-WebRequest -UseBasicParsing -OutFile $isl `
+              "https://raw.githubusercontent.com/kira-96/Inno-Setup-Chinese-Simplified-Translation/main/ChineseSimplified.isl"
+          } catch { Write-Host "Chinese .isl download failed: $_" }
+          $isccArgs = @(
+            "/Qp",
+            "/DAppVersion=$ver",
+            "/DVersionInfo=$verNum",
+            "/DArch=${{ matrix.arch }}",
+            "/DArchSpec=$archSpec",
+            "/DSourceDir=$((Resolve-Path dist).Path)",
+            "/DOutputDir=$((Get-Location).Path)",
+            "/DOutputBase=${{ steps.stage.outputs.name }}-setup"
+          )
+          if (Test-Path $isl) { $isccArgs += "/DChineseIsl=$isl" }
+          $isccArgs += "packaging/polaris.iss"
+          & $iscc @isccArgs
+          if ($LASTEXITCODE -ne 0) { throw "ISCC failed ($LASTEXITCODE)" }
+
+      - name: Upload packages
+        if: ${{ env.BUILD_PACKAGES == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.stage.outputs.name }}-packages
+          path: |
+            ${{ steps.stage.outputs.name }}.zip
+            ${{ steps.stage.outputs.name }}-setup.exe
+          if-no-files-found: error
+          retention-days: 14
+
+  # Opt-in (manual trigger only): the unsigned per-arch MSIX, like the Release
+  # workflow. Needs the `--features msix` exe — a different binary from the
+  # standalone one the build job stages — so it builds its own; the heavy deps
+  # come from the rust-cache the build job populates (keyed by target). Version is
+  # read from Cargo.toml by pack-msix.ps1 (MSIX versions must be numeric x.x.x.x).
+  msix:
+    # Same gate as the build job's BUILD_PACKAGES (env context isn't available in a
+    # job-level if, so the expression is repeated here and in msixbundle).
+    if: ${{ inputs.packages || contains(github.event.head_commit.message, '!build-release!') }}
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            target: x86_64-pc-windows-msvc
+          - arch: arm64
+            target: aarch64-pc-windows-msvc # cross-compiled on the x64 runner
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup
+        with:
+          target: ${{ matrix.target }}
+
+      - name: Pack MSIX (unsigned)
+        id: pack
+        shell: pwsh
+        # pack-msix.ps1 builds (--features msix) → stages → makeappx pack. No -Sign;
+        # the version defaults to the Cargo.toml version (4th part forced to 0).
+        run: |
+          & packaging/pack-msix.ps1 -Arch ${{ matrix.arch }}
+          if ($LASTEXITCODE -ne 0) { throw "pack-msix.ps1 failed ($LASTEXITCODE)" }
+          $safe  = "${{ github.ref_name }}" -replace '[/\\:*?"<>|]','-'
+          $short = "${{ github.sha }}".Substring(0,7)
+          $name  = "polaris-$safe-${{ matrix.arch }}-$short"
+          $src = Get-ChildItem "target/Polaris-*-${{ matrix.arch }}.msix" | Select-Object -First 1
+          if (-not $src) { throw "no .msix produced" }
+          Copy-Item $src.FullName "$name.msix"
+          "name=$name" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+      - name: Upload MSIX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.pack.outputs.name }}-msix
+          path: ${{ steps.pack.outputs.name }}.msix
+          if-no-files-found: error
+          retention-days: 14
+
+  # Opt-in: combine the per-arch MSIX into one unsigned .msixbundle, like the
+  # Release workflow. Runs after both msix legs; just makeappx repacking, no build.
+  msixbundle:
+    needs: msix
+    if: ${{ inputs.packages || contains(github.event.head_commit.message, '!build-release!') }}
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download per-arch MSIX
+        uses: actions/download-artifact@v4
+        with:
+          pattern: polaris-*-msix
+          path: msix
+          merge-multiple: true # flatten both arches into msix/
+
+      - name: Bundle (unsigned)
+        id: bundle
+        shell: pwsh
+        # bundle-msix.ps1 reads the version from Cargo.toml (numeric, 4 parts).
+        run: |
+          $safe  = "${{ github.ref_name }}" -replace '[/\\:*?"<>|]','-'
+          $short = "${{ github.sha }}".Substring(0,7)
+          $name  = "polaris-$safe-$short"
+          & packaging/bundle-msix.ps1 -InputDir msix -Out "$name.msixbundle"
+          if ($LASTEXITCODE -ne 0) { throw "bundle-msix.ps1 failed ($LASTEXITCODE)" }
+          "name=$name" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+      - name: Upload bundle artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.bundle.outputs.name }}-msixbundle
+          path: ${{ steps.bundle.outputs.name }}.msixbundle
           if-no-files-found: error
           retention-days: 14
