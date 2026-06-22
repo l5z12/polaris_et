@@ -33,6 +33,18 @@ use config::{LogLevel, Material, Store, Theme};
 use engine::Engine;
 use ui::{BodyProps, Handles};
 
+/// The window backdrop for a saved [`Material`] preference, or `None` for
+/// [`Material::Solid`] (no system backdrop). Shared by the window-creation path
+/// in `main` and the live-update effect in `root` so the two stay in sync.
+fn material_backdrop(material: Material) -> Option<Backdrop> {
+    match material {
+        Material::Mica => Some(Backdrop::Mica),
+        Material::MicaAlt => Some(Backdrop::MicaAlt),
+        Material::Acrylic => Some(Backdrop::Acrylic),
+        Material::Solid => None,
+    }
+}
+
 fn root(cx: &mut RenderCx, engine: &Engine) -> Element {
     // The engine is created in `main` and shared with the tray thread; memoize
     // a stable clone here so every render sees the same instance.
@@ -84,12 +96,7 @@ fn root(cx: &mut RenderCx, engine: &Engine) -> Element {
             Theme::Light => RequestedTheme::Light,
             Theme::Dark => RequestedTheme::Dark,
         });
-        set_backdrop(match material {
-            Material::Mica => Some(Backdrop::Mica),
-            Material::MicaAlt => Some(Backdrop::MicaAlt),
-            Material::Acrylic => Some(Backdrop::Acrylic),
-            Material::Solid => None,
-        });
+        set_backdrop(material_backdrop(material));
     });
 
     // Apply the diagnostics log level whenever it (or the enable toggle) changes.
@@ -309,7 +316,11 @@ fn main() -> Result<()> {
     let engine = Engine::new();
     tray::spawn(engine.clone());
 
-    App::new()
+    // Create the window with the saved backdrop already applied. The global
+    // `set_backdrop` only takes effect once the window exists (unlike the theme,
+    // it has no pending queue), so the `root` effect alone would leave a freshly
+    // created window on the default material until the setting is next toggled.
+    let app = App::new()
         .title("Polaris — EasyTier")
         .inner_size(1200.0, 800.0)
         .inner_constraints(InnerConstraints {
@@ -317,7 +328,10 @@ fn main() -> Result<()> {
             min_height: Some(560.0),
             max_width: None,
             max_height: None,
-        })
-        .backdrop(Backdrop::Mica)
-        .render(move |cx| root(cx, &engine))
+        });
+    let app = match material_backdrop(dprefs.material) {
+        Some(bd) => app.backdrop(bd),
+        None => app,
+    };
+    app.render(move |cx| root(cx, &engine))
 }
