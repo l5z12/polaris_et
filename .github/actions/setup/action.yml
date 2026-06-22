@@ -44,4 +44,9 @@ runs:
     - name: Cache cargo + target
       uses: Swatinem/rust-cache@v2
       with:
-        key: ${{ inputs.target }} # keep x64 and arm64 caches separate
+        # `shared-key` (not `key`): `key` is appended to rust-cache's automatic
+        # per-job key, so the build and msix jobs would each get their own cache
+        # and the msix job would recompile every heavy dep from scratch.
+        # `shared-key` is stable across jobs, so they share one cache per target
+        # (the `msix` feature adds no deps). Keyed by target keeps x64/arm64 apart.
+        shared-key: ${{ inputs.target }}
