@@ -4,10 +4,10 @@ name: Build
 # upload them as workflow artifacts for testing. Tag pushes are handled by
 # release.yml instead — `branches: ['**']` matches only branch pushes, not tags.
 #
-# By default a push just builds the loose payload. To also produce the full set
-# of Release-style packages (zip, setup.exe, MSIX, msixbundle), either run the
-# workflow manually with the `packages` input checked, or include the marker
-# !build-release! in the commit message — both flip BUILD_PACKAGES on.
+# Every push builds the loose payload and the Inno Setup installer (setup.exe).
+# To also produce the other Release-style packages (zip, MSIX, msixbundle),
+# either run the workflow manually with the `packages` input checked, or include
+# the marker !build-release! in the commit message — both flip BUILD_PACKAGES on.
 on:
   push:
     branches: ["**"]
@@ -104,17 +104,18 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      # Opt-in (manual trigger only): the same portable zip + Inno Setup installer
-      # the Release workflow ships. Both reuse the staged dist/ payload.
+      # Opt-in (manual trigger only): the portable zip the Release workflow ships.
+      # Reuses the staged dist/ payload.
       - name: Package (zip)
         if: ${{ env.BUILD_PACKAGES == 'true' }}
         shell: pwsh
         run: Compress-Archive -Path "dist/*" -DestinationPath "${{ steps.stage.outputs.name }}.zip" -Force
 
-      # Branch builds have no version tag, so the installer's display version is
-      # ci-<short sha>; VersionInfo (which must be numeric) comes from Cargo.toml.
+      # Built on every push (reuses the staged dist/ payload) so a ready-to-run
+      # setup.exe is always available. Branch builds have no version tag, so the
+      # installer's display version is ci-<short sha>; VersionInfo (which must be
+      # numeric) comes from Cargo.toml.
       - name: Build installer (Inno Setup)
-        if: ${{ env.BUILD_PACKAGES == 'true' }}
         shell: pwsh
         run: |
           choco install innosetup --no-progress -y
@@ -147,14 +148,21 @@ jobs:
           & $iscc @isccArgs
           if ($LASTEXITCODE -ne 0) { throw "ISCC failed ($LASTEXITCODE)" }
 
+      # The installer is always built, so upload it on every run.
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.stage.outputs.name }}-setup
+          path: ${{ steps.stage.outputs.name }}-setup.exe
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Upload packages
         if: ${{ env.BUILD_PACKAGES == 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.stage.outputs.name }}-packages
-          path: |
-            ${{ steps.stage.outputs.name }}.zip
-            ${{ steps.stage.outputs.name }}-setup.exe
+          path: ${{ steps.stage.outputs.name }}.zip
           if-no-files-found: error
           retention-days: 14
 
