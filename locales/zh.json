@@ -71,7 +71,7 @@
       "tun_name_placeholder": "留空则使用系统默认",
       "connection": "连接",
       "how_to_join": "连接方式",
-      "server_address": "服务器地址",
+      "server_address": "服务器地址（每行一个）",
       "peer_addresses": "对端地址（每行一个）",
       "standalone_hint": "独立模式 — 其他设备连接本节点的监听地址（在“高级”选项卡中设置）。",
       "addressing": "IP 地址",

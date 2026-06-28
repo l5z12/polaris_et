@@ -139,7 +139,11 @@ pub struct Profile {
 
     // Connection
     pub join_method: JoinMethod,
-    pub public_server: String,
+    // One public/relay server per line. Stored as a list so several can be
+    // given for redundancy; the legacy single-string `public_server` key still
+    // loads (see `de_servers`).
+    #[serde(default, alias = "public_server", deserialize_with = "de_servers")]
+    pub public_servers: Vec<String>,
     pub peers: Vec<String>,
     pub listeners: Vec<String>,
     #[serde(default)]
@@ -278,7 +282,7 @@ impl Default for Profile {
             virtual_ipv4: "10.126.126.1".to_string(),
             network_length: 24,
             join_method: JoinMethod::PublicServer,
-            public_server: "tcp://public.easytier.cn:11010".to_string(),
+            public_servers: vec!["tcp://public.easytier.cn:11010".to_string()],
             peers: Vec::new(),
             listeners: Vec::new(),
             mapped_listeners: Vec::new(),
@@ -336,6 +340,27 @@ impl Profile {
             (!t.is_empty()).then_some(t)
         };
 
+        // A public server is just a peer. EasyTier's PublicServer networking
+        // method honors only a single `public_server_url`, so when the user lists
+        // more than one we send them all as a manual peer list instead — both
+        // paths end up calling `set_peers`, so the result is identical. A single
+        // server keeps the canonical PublicServer method so an exported config
+        // still round-trips cleanly with the official EasyTier GUI.
+        let public_servers = clean_list(&self.public_servers);
+        let multi_public =
+            self.join_method == JoinMethod::PublicServer && public_servers.len() > 1;
+        let networking_method = match self.join_method {
+            _ if multi_public => NetworkingMethod::Manual,
+            JoinMethod::PublicServer => NetworkingMethod::PublicServer,
+            JoinMethod::Manual => NetworkingMethod::Manual,
+            JoinMethod::Standalone => NetworkingMethod::Standalone,
+        };
+        let peer_urls = if multi_public {
+            public_servers.clone()
+        } else {
+            clean_list(&self.peers)
+        };
+
         NetworkConfig {
             // Identity.
             network_name: Some(self.network_name.trim().to_string()),
@@ -349,13 +374,9 @@ impl Profile {
             network_length: (!self.dhcp).then_some(self.network_length as i32),
 
             // Connection.
-            networking_method: Some(match self.join_method {
-                JoinMethod::PublicServer => NetworkingMethod::PublicServer as i32,
-                JoinMethod::Manual => NetworkingMethod::Manual as i32,
-                JoinMethod::Standalone => NetworkingMethod::Standalone as i32,
-            }),
-            public_server_url: trimmed(&self.public_server),
-            peer_urls: clean_list(&self.peers),
+            networking_method: Some(networking_method as i32),
+            public_server_url: public_servers.first().cloned(),
+            peer_urls,
             listener_urls: clean_list(&self.listeners),
             mapped_listeners: clean_list(&self.mapped_listeners),
 
@@ -463,7 +484,7 @@ impl Profile {
         }
 
         p.join_method = JoinMethod::from_index(nc.networking_method.unwrap_or(0));
-        p.public_server = nc.public_server_url.clone().unwrap_or_default();
+        p.public_servers = nc.public_server_url.clone().into_iter().collect();
         p.peers = nc.peer_urls.clone();
         p.listeners = nc.listener_urls.clone();
         p.mapped_listeners = nc.mapped_listeners.clone();
@@ -675,6 +696,41 @@ fn parse_json_configs(text: &str) -> anyhow::Result<Vec<Profile>> {
     }
     let nc: NetworkConfig = serde_json::from_str(text)?;
     Ok(vec![Profile::from_network_config(&nc)])
+}
+
+/// Deserialize the public-server list, accepting either a JSON list (the current
+/// form) or a single string (the legacy `public_server` key) so older configs
+/// keep loading.
+fn de_servers<'de, D>(d: D) -> std::result::Result<Vec<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    use serde::de::{Error, SeqAccess, Visitor};
+    struct V;
+    impl<'de> Visitor<'de> for V {
+        type Value = Vec<String>;
+        fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+            f.write_str("a string or a list of strings")
+        }
+        fn visit_str<E: Error>(self, s: &str) -> std::result::Result<Self::Value, E> {
+            Ok(if s.trim().is_empty() {
+                Vec::new()
+            } else {
+                vec![s.to_string()]
+            })
+        }
+        fn visit_seq<A: SeqAccess<'de>>(
+            self,
+            mut seq: A,
+        ) -> std::result::Result<Self::Value, A::Error> {
+            let mut out = Vec::new();
+            while let Some(item) = seq.next_element::<String>()? {
+                out.push(item);
+            }
+            Ok(out)
+        }
+    }
+    d.deserialize_any(V)
 }
 
 fn clean_list(items: &[String]) -> Vec<String> {

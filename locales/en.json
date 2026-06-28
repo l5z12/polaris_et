@@ -71,7 +71,7 @@
       "tun_name_placeholder": "leave blank for the system default",
       "connection": "Connection",
       "how_to_join": "How to join",
-      "server_address": "Server address",
+      "server_address": "Server addresses (one per line)",
       "peer_addresses": "Peer addresses (one per line)",
       "standalone_hint": "Standalone — other devices connect to this node's listeners (set on the Advanced tab).",
       "addressing": "Addressing",

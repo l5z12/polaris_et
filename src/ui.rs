@@ -844,10 +844,12 @@ fn general_panel(ctx: &PageCtx, p: &Profile) -> Element {
     ];
     match p.join_method {
         JoinMethod::PublicServer => conn.push(
-            text_box(p.public_server.clone())
+            text_box(p.public_servers.join("\n"))
                 .header(t("network.general.server_address"))
                 .placeholder("tcp://public.easytier.cn:11010")
-                .on_changed(on_edit!(ctx, |p, v: String| p.public_server = v))
+                .multiline()
+                .height(110.0)
+                .on_changed(on_edit!(ctx, |p, v: String| p.public_servers = split_lines(&v)))
                 .into(),
         ),
         JoinMethod::Manual => conn.push(
