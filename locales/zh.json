@@ -74,6 +74,7 @@
       "server_address": "服务器地址（每行一个）",
       "peer_addresses": "对端地址（每行一个）",
       "standalone_hint": "独立模式 — 其他设备连接本节点的监听地址（在“高级”选项卡中设置）。",
+      "startup_mode": "启动时连接此网络",
       "addressing": "IP 地址",
       "dhcp": "自动分配 IP（DHCP）",
       "dhcp_help": "自动从网络获取虚拟 IP。关闭后可手动指定固定地址。",
@@ -195,6 +196,12 @@
     "manual": "指定对端节点",
     "standalone": "独立（主机）"
   },
+  "startup_mode": {
+    "off": "关闭",
+    "all": "每次启动时",
+    "autostart": "仅开机自启时",
+    "manual": "仅手动打开时"
+  },
   "peers": {
     "subtitle": "你的网络中可达的设备。",
     "empty_title": "暂无内容",
@@ -231,8 +238,6 @@
     "theme": "主题",
     "material": "窗口材质",
     "behaviour": "行为",
-    "auto_connect": "启动时自动连接所选网络",
-    "auto_connect_help": "Polaris 启动后会自动连接你最近编辑的网络。",
     "launch_on_startup": "开机时启动",
     "launch_on_startup_help": "登录 Windows 时自动启动 Polaris，并隐藏到系统托盘。",
     "tray": "系统托盘",

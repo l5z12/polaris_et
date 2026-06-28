@@ -869,6 +869,22 @@ fn general_panel(ctx: &PageCtx, p: &Profile) -> Element {
                 .into(),
         ),
     }
+    // Per-network "start on startup" — Off / every launch / sign-in only / manual
+    // only. The sign-in / manual split keys off the app-level "Launch when
+    // Windows starts" setting (see `settings_page`).
+    let startup_labels: Vec<String> = StartupMode::ALL
+        .iter()
+        .map(|m| m.label().to_string())
+        .collect();
+    conn.push(
+        ComboBox::new(startup_labels)
+            .header(t("network.general.startup_mode"))
+            .selected_index(p.startup_mode.index())
+            .on_selection_changed(
+                on_edit!(ctx, |p, v: i32| p.startup_mode = StartupMode::from_index(v))
+            )
+            .into(),
+    );
     let connection = card(
         "network.general.connection",
         vstack(conn).spacing(14.0).into(),
@@ -2054,23 +2070,12 @@ pub fn settings_page(ctx: &PageCtx) -> Element {
     };
     let behavior = card(
         "settings.behaviour",
-        vstack((
-            switch_row(
-                "settings.auto_connect",
-                "settings.auto_connect_help",
-                s.auto_connect,
-                on_setting!(ctx, |st, v: bool| st.auto_connect = v),
-            ),
-            divider(),
-            switch_row(
-                "settings.launch_on_startup",
-                "settings.launch_on_startup_help",
-                crate::autostart::is_enabled(),
-                on_startup,
-            ),
-        ))
-        .spacing(14.0)
-        .into(),
+        switch_row(
+            "settings.launch_on_startup",
+            "settings.launch_on_startup_help",
+            crate::autostart::is_enabled(),
+            on_startup,
+        ),
     );
 
     let tray = card(

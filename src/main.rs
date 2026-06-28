@@ -111,16 +111,21 @@ fn root(cx: &mut RenderCx, engine: &Engine) -> Element {
         });
     });
 
-    // Optionally connect the selected network on launch.
+    // Bring up every network whose per-network startup mode matches how Polaris
+    // was launched — manually vs. at Windows sign-in. The sign-in launch is
+    // marked by `STARTUP_ARG` (see `autostart`); a packaged StartupTask launch
+    // can't pass it, so it reads as a manual launch there.
     {
         let engine = engine.clone();
-        let auto = store.settings.auto_connect;
-        // No networks → nothing to auto-connect.
-        let conn = store
-            .current()
-            .map(|p| (p.id.clone(), p.to_network_config()));
+        let at_startup = std::env::args().any(|a| a == autostart::STARTUP_ARG);
+        let to_start: Vec<_> = store
+            .profiles
+            .iter()
+            .filter(|p| p.startup_mode.should_start(at_startup))
+            .map(|p| (p.id.clone(), p.to_network_config()))
+            .collect();
         cx.use_effect((), move || {
-            if auto && let Some((id, cfg)) = conn {
+            for (id, cfg) in to_start {
                 engine.start(id, cfg);
             }
         });

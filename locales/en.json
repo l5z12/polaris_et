@@ -74,6 +74,7 @@
       "server_address": "Server addresses (one per line)",
       "peer_addresses": "Peer addresses (one per line)",
       "standalone_hint": "Standalone — other devices connect to this node's listeners (set on the Advanced tab).",
+      "startup_mode": "Start this network on startup",
       "addressing": "Addressing",
       "dhcp": "Automatic IP (DHCP)",
       "dhcp_help": "Get a virtual IP from the network automatically. Turn off to assign a fixed address.",
@@ -195,6 +196,12 @@
     "manual": "Specific peers",
     "standalone": "Standalone (host)"
   },
+  "startup_mode": {
+    "off": "Off",
+    "all": "On every launch",
+    "autostart": "Only at Windows startup",
+    "manual": "Only when opened manually"
+  },
   "peers": {
     "subtitle": "Devices reachable on your networks.",
     "empty_title": "Nothing here yet",
@@ -231,8 +238,6 @@
     "theme": "Theme",
     "material": "Window material",
     "behaviour": "Behaviour",
-    "auto_connect": "Connect the selected network on launch",
-    "auto_connect_help": "Polaris will start your last-edited network as soon as it opens.",
     "launch_on_startup": "Launch when Windows starts",
     "launch_on_startup_help": "Start Polaris automatically at sign-in, hidden in the system tray.",
     "tray": "System tray",

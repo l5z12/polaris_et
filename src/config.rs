@@ -66,6 +66,57 @@ impl JoinMethod {
     }
 }
 
+// ───────────────────────────── Startup mode ───────────────────────────────
+
+/// When a network should be brought up automatically as Polaris launches.
+#[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum StartupMode {
+    /// Never start automatically.
+    #[default]
+    Off,
+    /// Start on every launch — whether Polaris was opened manually or at sign-in.
+    All,
+    /// Start only when Polaris was launched at Windows sign-in (see `autostart`).
+    AutoStart,
+    /// Start only when Polaris was opened manually by the user.
+    Manual,
+}
+
+impl StartupMode {
+    pub const ALL: [StartupMode; 4] = [
+        StartupMode::Off,
+        StartupMode::All,
+        StartupMode::AutoStart,
+        StartupMode::Manual,
+    ];
+    pub fn label(self) -> &'static str {
+        ts(match self {
+            StartupMode::Off => "startup_mode.off",
+            StartupMode::All => "startup_mode.all",
+            StartupMode::AutoStart => "startup_mode.autostart",
+            StartupMode::Manual => "startup_mode.manual",
+        })
+    }
+    pub fn index(self) -> i32 {
+        Self::ALL.iter().position(|m| *m == self).unwrap_or(0) as i32
+    }
+    pub fn from_index(i: i32) -> Self {
+        *Self::ALL
+            .get(i.max(0) as usize)
+            .unwrap_or(&StartupMode::Off)
+    }
+    /// Whether a network with this mode should start, given whether Polaris was
+    /// launched at Windows sign-in (`at_startup`) versus opened manually.
+    pub fn should_start(self, at_startup: bool) -> bool {
+        match self {
+            StartupMode::Off => false,
+            StartupMode::All => true,
+            StartupMode::AutoStart => at_startup,
+            StartupMode::Manual => !at_startup,
+        }
+    }
+}
+
 // ────────────────────────────── Port forwarding ───────────────────────────
 
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -148,6 +199,9 @@ pub struct Profile {
     pub listeners: Vec<String>,
     #[serde(default)]
     pub mapped_listeners: Vec<String>,
+    /// When to bring this network up automatically as Polaris launches.
+    #[serde(default)]
+    pub startup_mode: StartupMode,
 
     // Subnet proxy / SOCKS5
     pub proxy_cidrs: Vec<String>,
@@ -286,6 +340,7 @@ impl Default for Profile {
             peers: Vec::new(),
             listeners: Vec::new(),
             mapped_listeners: Vec::new(),
+            startup_mode: StartupMode::Off,
             proxy_cidrs: Vec::new(),
             enable_socks5: false,
             socks5_port: 1080,
@@ -856,6 +911,10 @@ pub struct Settings {
     pub theme: Theme,
     pub material: Material,
     pub tall_titlebar: bool,
+    /// Legacy global "connect the selected network on launch". Superseded by the
+    /// per-network [`Profile::startup_mode`]; kept only so `Store::load` can
+    /// migrate an old config (see there). No longer surfaced in the UI.
+    #[serde(default)]
     pub auto_connect: bool,
     /// Closing the window hides Polaris to the tray instead of quitting.
     #[serde(default = "default_true")]
@@ -942,6 +1001,16 @@ impl Store {
         // An empty profile list is allowed (the user can delete every network);
         // only a fresh install starts with the default network (Store::default).
         store.selected = store.selected.min(store.profiles.len().saturating_sub(1));
+        // Migrate the legacy global "connect selected network on launch" toggle
+        // onto the per-network startup mode, then clear it so it runs only once.
+        if store.settings.auto_connect {
+            if let Some(p) = store.profiles.get_mut(store.selected)
+                && p.startup_mode == StartupMode::Off
+            {
+                p.startup_mode = StartupMode::All;
+            }
+            store.settings.auto_connect = false;
+        }
         store
     }
 
