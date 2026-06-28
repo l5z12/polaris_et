@@ -115,8 +115,13 @@ fn reg_set(on: bool) {
 fn open_run_key() -> Option<HKEY> {
     unsafe {
         let mut hkey = HKEY(std::ptr::null_mut());
-        (RegOpenKeyExW(HKEY_CURRENT_USER, RUN_SUBKEY, None, KEY_SET_VALUE, &mut hkey)
-            == ERROR_SUCCESS)
+        (RegOpenKeyExW(
+            HKEY_CURRENT_USER,
+            RUN_SUBKEY,
+            None,
+            KEY_SET_VALUE,
+            &mut hkey,
+        ) == ERROR_SUCCESS)
             .then_some(hkey)
     }
 }
