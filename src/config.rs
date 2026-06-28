@@ -347,8 +347,7 @@ impl Profile {
         // server keeps the canonical PublicServer method so an exported config
         // still round-trips cleanly with the official EasyTier GUI.
         let public_servers = clean_list(&self.public_servers);
-        let multi_public =
-            self.join_method == JoinMethod::PublicServer && public_servers.len() > 1;
+        let multi_public = self.join_method == JoinMethod::PublicServer && public_servers.len() > 1;
         let networking_method = match self.join_method {
             _ if multi_public => NetworkingMethod::Manual,
             JoinMethod::PublicServer => NetworkingMethod::PublicServer,
