@@ -42,6 +42,10 @@ static HOOKED: AtomicBool = AtomicBool::new(false);
 static ICON_SET: AtomicBool = AtomicBool::new(false);
 /// Whether the "still running in the tray" hint has been shown this run.
 static HINT_SHOWN: AtomicBool = AtomicBool::new(false);
+/// Whether the OS has told us the session is ending (shutdown / restart /
+/// logoff). Once set, the close hook stops diverting to the tray so the app
+/// exits quietly instead of lingering and blocking the shutdown.
+static SHUTTING_DOWN: AtomicBool = AtomicBool::new(false);
 /// HWND of the tray's hidden message window (for showing balloon hints).
 static TRAY_HWND: AtomicIsize = AtomicIsize::new(0);
 
@@ -439,7 +443,22 @@ unsafe extern "system" fn subclass_proc(
             return LRESULT(0);
         }
         match msg {
-            WM_CLOSE if CLOSE_TO_TRAY.load(Ordering::Relaxed) => {
+            // The OS is ending the session (shutdown / restart / logoff). Record
+            // it so the close hook below stops hiding to the tray, then let the
+            // default proc reply (it returns TRUE, allowing the session to end).
+            WM_QUERYENDSESSION => {
+                SHUTTING_DOWN.store(true, Ordering::Relaxed);
+                DefSubclassProc(hwnd, msg, wparam, lparam)
+            }
+            // Session is really ending — exit quietly rather than lingering in
+            // the tray and stalling the shutdown.
+            WM_ENDSESSION if wparam.0 != 0 => {
+                std::process::exit(0);
+            }
+            WM_CLOSE
+                if CLOSE_TO_TRAY.load(Ordering::Relaxed)
+                    && !SHUTTING_DOWN.load(Ordering::Relaxed) =>
+            {
                 hide_to_tray(hwnd);
                 LRESULT(0)
             }
