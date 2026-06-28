@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-only
 //! Single-instance enforcement.
 //!
 //! A named mutex detects whether another Polaris is already running. A second

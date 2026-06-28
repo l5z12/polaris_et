@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-only
 //! App-side configuration: connection profiles and UI preferences, persisted as
 //! JSON under `%APPDATA%\Polaris\config.json`, plus conversion into EasyTier's
 //! `NetworkConfig`.

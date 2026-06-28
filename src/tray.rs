@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-only
 //! Windows notification-area (system tray) icon.
 //!
 //! Runs on its own dedicated thread with a hidden message window and a private

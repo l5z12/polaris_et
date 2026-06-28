@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-only
 //! Embedded EasyTier engine — supports **multiple concurrent networks**.
 //!
 //! A dedicated OS thread runs a multi-threaded Tokio runtime that owns a map of

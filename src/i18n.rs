@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-only
 //! In-app internationalization (English + Simplified Chinese).
 //!
 //! UI strings are referenced by **namespaced keys** (e.g. `tray.show_polaris`,

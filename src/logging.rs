@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-only
 //! Process-wide diagnostics logging.
 //!
 //! Installs ONE global `tracing` subscriber early in `main` that fans every

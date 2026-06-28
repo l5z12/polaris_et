@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-only
 //! "Run Polaris when Windows starts".
 //!
 //! Two mechanisms, chosen by how the app was installed:

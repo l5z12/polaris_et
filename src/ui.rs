@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-only
 //! All pages and shared view helpers for the Polaris UI.
 //!
 //! The shell (title bar + NavigationView) lives in `main.rs`. This file owns

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-only
 //! Windows privilege & packaging detection.
 //!
 //! EasyTier's TUN adapter can only be created with administrator rights. We

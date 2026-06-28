@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-only
 //! Thin wrappers over the Win32 common item dialogs (`IFileOpenDialog` /
 //! `IFileSaveDialog`) for import/export. Runs on the UI thread; the WinUI host
 //! has already initialized COM (STA).
