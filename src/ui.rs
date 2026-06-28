@@ -2040,14 +2040,37 @@ pub fn settings_page(ctx: &PageCtx) -> Element {
         .into(),
     );
 
+    // "Run on startup" is backed by the OS (registry Run key / MSIX StartupTask),
+    // not the saved Settings — so it reads/writes `autostart` directly. The store
+    // nudge forces a re-render so the toggle reflects the applied state (e.g. a
+    // packaged build the user disabled in Windows Settings can't be re-enabled).
+    let on_startup = {
+        let set = ctx.set_store.clone();
+        let store = ctx.store.clone();
+        move |v: bool| {
+            crate::autostart::set_enabled(v);
+            set.call(store.clone());
+        }
+    };
     let behavior = card(
         "settings.behaviour",
-        switch_row(
-            "settings.auto_connect",
-            "settings.auto_connect_help",
-            s.auto_connect,
-            on_setting!(ctx, |st, v: bool| st.auto_connect = v),
-        ),
+        vstack((
+            switch_row(
+                "settings.auto_connect",
+                "settings.auto_connect_help",
+                s.auto_connect,
+                on_setting!(ctx, |st, v: bool| st.auto_connect = v),
+            ),
+            divider(),
+            switch_row(
+                "settings.launch_on_startup",
+                "settings.launch_on_startup_help",
+                crate::autostart::is_enabled(),
+                on_startup,
+            ),
+        ))
+        .spacing(14.0)
+        .into(),
     );
 
     let tray = card(

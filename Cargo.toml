@@ -65,6 +65,8 @@ chrono = "0.4"
 
 # Native file dialogs (import/export) and the system-tray icon.
 windows = { version = "0.62", features = [
+    # WinRT StartupTask API — "run on startup" for the packaged (MSIX) build.
+    "ApplicationModel",
     "Win32_Foundation",
     "Win32_Security",
     "Win32_Storage_Packaging_Appx",
@@ -73,6 +75,8 @@ windows = { version = "0.62", features = [
     "Win32_System_DataExchange",
     "Win32_System_LibraryLoader",
     "Win32_System_Memory",
+    # HKCU\...\Run autostart entry for the unpackaged (installer / portable) build.
+    "Win32_System_Registry",
     "Win32_System_Threading",
     "Win32_System_Variant",
     "Win32_UI_Shell",

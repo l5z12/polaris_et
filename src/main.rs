@@ -13,6 +13,7 @@
 //! and they silently never updated.)
 #![windows_subsystem = "windows"]
 
+mod autostart;
 mod config;
 mod dialog;
 mod elevate;
@@ -258,6 +259,8 @@ fn main() -> Result<()> {
     }
 
     elevate::init();
+    // Cache the "run on startup" state (and refresh the Run entry's exe path).
+    autostart::init();
 
     // Single instance: if another Polaris is already running, ask it to surface
     // its window (it may be hidden in the tray) and exit. Peeked *before* any
@@ -315,6 +318,12 @@ fn main() -> Result<()> {
     // thread-safe) between the UI and the system-tray icon.
     let engine = Engine::new();
     tray::spawn(engine.clone());
+
+    // Launched at sign-in (see `autostart`)? Start hidden in the tray instead of
+    // popping the window. The flag is forwarded through an elevation relaunch.
+    if std::env::args().any(|a| a == autostart::STARTUP_ARG) {
+        tray::set_start_hidden();
+    }
 
     // Create the window with the saved backdrop already applied. The global
     // `set_backdrop` only takes effect once the window exists (unlike the theme,

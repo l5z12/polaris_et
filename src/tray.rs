@@ -46,6 +46,10 @@ static HINT_SHOWN: AtomicBool = AtomicBool::new(false);
 /// logoff). Once set, the close hook stops diverting to the tray so the app
 /// exits quietly instead of lingering and blocking the shutdown.
 static SHUTTING_DOWN: AtomicBool = AtomicBool::new(false);
+/// Launched at Windows sign-in: hide the window to the tray once it exists,
+/// instead of showing it. Cleared after the one-shot hide so a later manual
+/// open isn't re-hidden.
+static START_HIDDEN: AtomicBool = AtomicBool::new(false);
 /// HWND of the tray's hidden message window (for showing balloon hints).
 static TRAY_HWND: AtomicIsize = AtomicIsize::new(0);
 
@@ -57,6 +61,12 @@ pub fn set_close_to_tray(on: bool) {
 /// Mirror the minimize-to-tray setting (called from the UI thread).
 pub fn set_minimize_to_tray(on: bool) {
     MINIMIZE_TO_TRAY.store(on, Ordering::Relaxed);
+}
+
+/// Request that the main window start hidden in the tray (autostart launch).
+/// Acted on by [`ensure_window_hook`] once the window exists.
+pub fn set_start_hidden() {
+    START_HIDDEN.store(true, Ordering::Relaxed);
 }
 
 struct Tray {
@@ -338,6 +348,7 @@ fn write_wide(buf: &mut [u16], s: &str) {
 ///
 /// Must run on the UI thread (the thread that owns the main window).
 pub fn ensure_window_hook() {
+    maybe_hide_on_startup();
     if HOOKED.load(Ordering::Relaxed) {
         return;
     }
@@ -354,6 +365,22 @@ pub fn ensure_window_hook() {
         if SetWindowSubclass(hwnd, Some(subclass_proc), MAIN_SUBCLASS_ID, 0).as_bool() {
             HOOKED.store(true, Ordering::Relaxed);
         }
+    }
+}
+
+/// One-shot for an autostart launch: hide the window to the tray as soon as it
+/// appears. Runs on each repaint tick (the window may not exist on the first
+/// few) until it succeeds, then clears the flag so a later manual reopen isn't
+/// hidden again.
+fn maybe_hide_on_startup() {
+    if !START_HIDDEN.load(Ordering::Relaxed) {
+        return;
+    }
+    if let Some(hwnd) = find_main_window() {
+        unsafe {
+            let _ = ShowWindow(hwnd, SW_HIDE);
+        }
+        START_HIDDEN.store(false, Ordering::Relaxed);
     }
 }
 

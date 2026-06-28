@@ -14,7 +14,8 @@
   xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
   xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
-  IgnorableNamespaces="uap rescap">
+  xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
+  IgnorableNamespaces="uap rescap desktop">
 
   <Identity
     Name="L5Z12.Polaris-MeshVPN"
@@ -60,6 +61,17 @@
         Square44x44Logo="Assets\Square44x44Logo.png">
         <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" ShortName="Polaris" />
       </uap:VisualElements>
+      <Extensions>
+        <!-- "Run on startup" for the packaged build. Declared disabled; the app
+             toggles it via the WinRT StartupTask API (see src/autostart.rs).
+             TaskId MUST match autostart::TASK_ID. -->
+        <desktop:Extension
+          Category="windows.startupTask"
+          Executable="polaris_et.exe"
+          EntryPoint="Windows.FullTrustApplication">
+          <desktop:StartupTask TaskId="PolarisStartup" Enabled="false" DisplayName="Polaris" />
+        </desktop:Extension>
+      </Extensions>
     </Application>
   </Applications>
 

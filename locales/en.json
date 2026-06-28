@@ -233,6 +233,8 @@
     "behaviour": "Behaviour",
     "auto_connect": "Connect the selected network on launch",
     "auto_connect_help": "Polaris will start your last-edited network as soon as it opens.",
+    "launch_on_startup": "Launch when Windows starts",
+    "launch_on_startup_help": "Start Polaris automatically at sign-in, hidden in the system tray.",
     "tray": "System tray",
     "close_to_tray": "Close button minimizes to tray",
     "close_to_tray_help": "Closing the window keeps Polaris running in the notification area. Use the tray icon's Quit to exit completely.",

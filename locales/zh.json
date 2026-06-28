@@ -233,6 +233,8 @@
     "behaviour": "行为",
     "auto_connect": "启动时自动连接所选网络",
     "auto_connect_help": "Polaris 启动后会自动连接你最近编辑的网络。",
+    "launch_on_startup": "开机时启动",
+    "launch_on_startup_help": "登录 Windows 时自动启动 Polaris，并隐藏到系统托盘。",
     "tray": "系统托盘",
     "close_to_tray": "关闭按钮最小化到托盘",
     "close_to_tray_help": "关闭窗口后 Polaris 仍在通知区域运行，点击托盘图标的“退出”可完全退出。",

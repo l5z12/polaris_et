@@ -105,10 +105,14 @@ pub fn relaunch_elevated() -> bool {
         .encode_wide()
         .chain(std::iter::once(0))
         .collect();
-    let params: Vec<u16> = RELAUNCH_FLAG
-        .encode_utf16()
-        .chain(std::iter::once(0))
-        .collect();
+    // Carry the takeover flag, and preserve `--startup` so an autostart launch
+    // that relaunches to elevate still starts hidden in the tray.
+    let mut args = RELAUNCH_FLAG.to_string();
+    if std::env::args().any(|a| a == crate::autostart::STARTUP_ARG) {
+        args.push(' ');
+        args.push_str(crate::autostart::STARTUP_ARG);
+    }
+    let params: Vec<u16> = args.encode_utf16().chain(std::iter::once(0)).collect();
     unsafe {
         let result = ShellExecuteW(
             None,
